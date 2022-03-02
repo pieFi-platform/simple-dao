@@ -10,14 +10,20 @@ contract Factory{
         
     }
 
+    event CreateMainEvent(address mainContract, string name);
+    event CreateProxyEvent(address proxyContract, string name);
+
     function createMain(string memory _name) public returns(address){
-        mainContract = address(new SimpleDAOImp(_name));
+//        mainContract = address(new SimpleDAOImp(_name));
+        mainContract = address(this);
+        emit CreateMainEvent(mainContract, _name);
         return mainContract;
     }
 
     function createProxy(string memory _name) public returns(address){
         address p = address(new SimpleDAOProxy(_name));
         proxies[p] = true;
+        emit CreateProxyEvent(p, _name);
         return p;
     }
 }
