@@ -4,38 +4,27 @@ pragma solidity >=0.7.0 <0.9.0;
 import "./hip-206/HederaTokenService.sol";
 import "./hip-206/HederaResponseCodes.sol";
 import "./Dao.sol";
+import "./Storage.sol";
 
 contract DaoProxy is HederaTokenService{
-    // These state variables must remained unchanged
-    address officerTokenAddress;        //0 
-    address adminTokenAddress;          //1
-    address memberTokenAddress;         //2
-
-    address treasury;                   //3
-
-    mapping(address => bool) officers;  //4
-    mapping(address => bool) admins;    //5
-    mapping(address => bool) members;   //6
-    // -----------------------------------
+    Storage internal s;
 
     // Additional state variables go below here
     Dao private daoAddress;
 
     constructor(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress, Dao _daoAddress) {
-        officerTokenAddress = _officerTokenAddress;
-        adminTokenAddress = _adminTokenAddress;
-        memberTokenAddress = _memberTokenAddress;
+        s.officerTokenAddress = _officerTokenAddress;
+        s.adminTokenAddress = _adminTokenAddress;
+        s.memberTokenAddress = _memberTokenAddress;
 
-        treasury = msg.sender;
+        s.treasury = msg.sender;
 
-        officers[msg.sender] = true;
-        admins[msg.sender] = true;
-        members[msg.sender] = true;
+        s.officers[msg.sender] = true;
+        s.admins[msg.sender] = true;
+        s.members[msg.sender] = true;
 
         daoAddress = _daoAddress;
     }
-
-    // TODO: Don't pass around the _dao Address, use a setter/getter to set the main contract address
 
     event DelegateCallEvent(bool success, bytes result);
 
@@ -181,11 +170,11 @@ contract DaoProxy is HederaTokenService{
     }
 
     modifier onlyOfficer() {
-        require(officers[msg.sender] == true, 'Only an Officer can perform this function');
+        require(s.officers[msg.sender] == true, 'Only an Officer can perform this function');
         _;
     }
     modifier onlyAdminOrOfficer() {
-        require(admins[msg.sender] == true || officers[msg.sender] == true, 'Only an Officer or an Admin can perform this function');
+        require(s.admins[msg.sender] == true || s.officers[msg.sender] == true, 'Only an Officer or an Admin can perform this function');
         _;
     }
     

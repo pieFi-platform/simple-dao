@@ -20,6 +20,8 @@ import {
 } from "@hashgraph/sdk";
 import BigNumber from "bignumber.js";
 import { deployContract } from "./deploy";
+import * as fs from "fs";
+import Web3 from "web3";
 
 ////////////////////////Create Tokens (called by createDao)////////////////////////
 async function createToken(
@@ -318,6 +320,9 @@ export async function removeAccess(
       removeeKey
     );
     const removeAccessSubmit = await removeAccessSignGrantee.execute(client);
+
+    const record = await removeAccessSubmit.getReceipt(client);
+
     const removeAccessReceipt = await removeAccessSubmit.getReceipt(client);
     const removeAccessStatus = removeAccessReceipt.status._code;
 
@@ -364,6 +369,10 @@ async function mintTokens(
   await checkBalances();
 }
 
+function valOrZero(input: any): Number {
+  return input ? input : 0;
+}
+
 ///////////For Testing//////////////
 async function checkBalances() {
   const treasuryId = AccountId.fromString(process.env.OPERATOR_ID);
@@ -382,28 +391,36 @@ async function checkBalances() {
   const treasuryAdBalance = await checkBalance(treasuryId, adminTokenId);
   const treasuryMemBalance = await checkBalance(treasuryId, memberTokenId);
   console.log(
-    `Treasury has: ${treasuryOffBalance} officer tokens, ${treasuryAdBalance} admin tokens, and ${treasuryMemBalance} member tokens`
+    `Treasury has: ${valOrZero(treasuryOffBalance)} officer tokens, ${valOrZero(
+      treasuryAdBalance
+    )} admin tokens, and ${valOrZero(treasuryMemBalance)} member tokens`
   );
 
   const aliceOffBalance = await checkBalance(aliceId, officerTokenId);
   const aliceAdBalance = await checkBalance(aliceId, adminTokenId);
   const aliceMemBalance = await checkBalance(aliceId, memberTokenId);
   console.log(
-    `Alice has: ${aliceOffBalance} officer tokens, ${aliceAdBalance} admin tokens, and ${aliceMemBalance} member tokens`
+    `Alice has: ${valOrZero(aliceOffBalance)} officer tokens, ${valOrZero(
+      aliceAdBalance
+    )} admin tokens, and ${valOrZero(aliceMemBalance)} member tokens`
   );
 
   const bobOffBalance = await checkBalance(bobId, officerTokenId);
   const bobAdBalance = await checkBalance(bobId, adminTokenId);
   const bobMemBalance = await checkBalance(bobId, memberTokenId);
   console.log(
-    `Bob has: ${bobOffBalance} officer tokens, ${bobAdBalance} admin tokens, and ${bobMemBalance} member tokens`
+    `Bob has: ${valOrZero(bobOffBalance)} officer tokens, ${valOrZero(
+      bobAdBalance
+    )} admin tokens, and ${valOrZero(bobMemBalance)} member tokens`
   );
 
   const sallyOffBalance = await checkBalance(sallyId, officerTokenId);
   const sallyAdBalance = await checkBalance(sallyId, adminTokenId);
   const sallyMemBalance = await checkBalance(sallyId, memberTokenId);
   console.log(
-    `Sally has: ${sallyOffBalance} officer tokens, ${sallyAdBalance} admin tokens, and ${sallyMemBalance} member tokens`
+    `Sally has: ${valOrZero(sallyOffBalance)} officer tokens, ${valOrZero(
+      sallyAdBalance
+    )} admin tokens, and ${valOrZero(sallyMemBalance)} member tokens`
   );
 
   async function checkBalance(aId: AccountId, tId: TokenId) {
@@ -422,6 +439,116 @@ async function checkBalances() {
   }
 }
 
+const web3 = new Web3();
+
+if (!process.env.ABI) {
+  throw new Error("Need ABI in env file");
+}
+const abiPath = process.env.ABI;
+const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
+// console.log(abi);
+
+/**
+ * Decodes the result of a contract's function execution
+ * @param functionName the name of the function within the ABI
+ * @param resultAsBytes a byte array containing the execution result
+ */
+function decodeFunctionResult(functionName: string, resultAsBytes: Uint8Array) {
+  const functionAbi = abi.find((func: any) => func.name === functionName);
+  const functionParameters = functionAbi.outputs;
+  const resultHex = "0x".concat(Buffer.from(resultAsBytes).toString("hex"));
+  const result = web3.eth.abi.decodeParameters(functionParameters, resultHex);
+  return result;
+}
+
+/**
+ * Encodes a function call so that the contract's function can be executed or called
+ * @param functionName the name of the function to call
+ * @param parameters the array of parameters to pass to the function
+ */
+function encodeFunctionCall(functionName: string, parameters: string[]) {
+  const functionAbi = abi.find(
+    (func: any) => func.name === functionName && func.type === "function"
+  );
+  const encodedParametersHex = web3.eth.abi
+    .encodeFunctionCall(functionAbi, parameters)
+    .slice(2);
+  return Buffer.from(encodedParametersHex, "hex");
+}
+
+function getClient(): Client {
+  // Retrieve account info from .env
+  const operatorId = AccountId.fromString(
+    process.env.OPERATOR_ID.replace('"', "")
+  );
+  const operatorKey = PrivateKey.fromString(
+    process.env.OPERATOR_PVKEY.replace('"', "")
+  );
+
+  // Configure Hedera network and build client
+  const network = process.env.NETWORK.toLowerCase();
+
+  let client: Client;
+  if (network === "testnet") {
+    client = Client.forTestnet().setOperator(operatorId, operatorKey);
+  } else if (network === "mainnet") {
+    client = Client.forMainnet().setOperator(operatorId, operatorKey);
+  } else {
+    throw new Error(
+      `❌The Hedera network you entered is not valid. (Please enter either "Testnet" or "Mainnet")❌`
+    );
+  }
+  return client;
+}
+
+async function callContractFunc() {
+  if (!process.env.CONTRACT_GAS) {
+    throw new Error("Need GAS in env file");
+  }
+  const gas = Number(process.env.CONTRACT_GAS);
+
+  if (!process.env.CONTRACT_ID) {
+    throw new Error("Need CONTRACT_ID in env file");
+  }
+  const contractId = process.env.CONTRACT_ID;
+  console.log(`Using contractId: ${contractId}`);
+
+  if (!process.env.FUNCTION_NAME) {
+    throw new Error("Need FUNCTION_NAME in env file");
+  }
+  const funcName = process.env.FUNCTION_NAME;
+  console.log(`Using funcName: ${funcName}`);
+
+  //------Parse constructor parameters and create string-----
+  if (!process.env.FUNCTION_PARAMS) {
+    throw new Error("Need FUNCTION_PARAMS in env file");
+  }
+  const funcParams = JSON.parse(process.env.FUNCTION_PARAMS);
+  console.log(`Using params: ${funcParams}`);
+
+  const client = getClient();
+
+  const tx = await new ContractExecuteTransaction()
+    .setContractId(contractId)
+    .setFunctionParameters(
+      encodeFunctionCall(funcName, funcParams ? funcParams : [])
+    )
+    .setGas(gas)
+    .execute(client);
+
+  const record = await tx.getRecord(client);
+  console.log(record);
+
+  if (record.contractFunctionResult) {
+    console.log(
+      decodeFunctionResult(funcName, record.contractFunctionResult.bytes)
+    );
+  }
+  const txStatus = record.receipt.status;
+  console.log(`The transaction status was: ${txStatus}`);
+  //   console.log(Number(record.contractFunctionResult?.getUint256()));
+}
+
 const treasuryId = AccountId.fromString(process.env.OPERATOR_ID);
 const treasuryKey = PrivateKey.fromString(process.env.OPERATOR_PVKEY);
 const aliceId = AccountId.fromString(process.env.TRANSFER_TEST_ID);
@@ -434,8 +561,8 @@ const sallyKey = PrivateKey.fromString(process.env.SALLY_PVKEY);
 // const dao = createDao(
 //   treasuryId.toString(),
 //   treasuryKey.toString(),
-//   "Luffy",
-//   "LUF",
+//   "Factory",
+//   "F",
 //   12,
 //   30,
 //   110
@@ -444,10 +571,11 @@ const sallyKey = PrivateKey.fromString(process.env.SALLY_PVKEY);
 const officerTokenId = TokenId.fromString(process.env.DAO_OFFICER_ID);
 const adminTokenId = TokenId.fromString(process.env.DAO_ADMIN_ID);
 const memberTokenId = TokenId.fromString(process.env.DAO_MEMBER_ID);
-// const contractId = ContractId.fromString(process.env.CONTRACT_ID);
-const contractId = ContractId.fromString(process.env.PROXY_CONTRACT_ID);
+const contractId = ContractId.fromString(process.env.CONTRACT_ID);
+// const contractId = ContractId.fromString(process.env.PROXY_CONTRACT_ID);
 
-checkBalances();
+callContractFunc();
+// checkBalances();
 
 // grantAccess(
 //   contractId,
@@ -496,24 +624,24 @@ checkBalances();
 // );
 
 // async function sendHbar() {
-// 	const client = Client.forTestnet().setOperator(treasuryId, treasuryKey);
-// 	const sendHbar = await new TransferTransaction()
-// 		.addHbarTransfer(treasuryId, Hbar.fromTinybars(-30000000))
-// 		.addHbarTransfer(aliceId, Hbar.fromTinybars(30000000))
-// 		.execute(client);
-// 	const sendreceipt = await sendHbar.getReceipt(client);
-// 	console.log(
-// 		"The transfer transaction from my account to the new account was: " +
-// 			sendreceipt.status.toString()
-// 	);
+//   const client = Client.forTestnet().setOperator(treasuryId, treasuryKey);
+//   const sendHbar = await new TransferTransaction()
+//     .addHbarTransfer(treasuryId, Hbar.fromTinybars(-30000000))
+//     .addHbarTransfer(aliceId, Hbar.fromTinybars(30000000))
+//     .execute(client);
+//   const sendreceipt = await sendHbar.getReceipt(client);
+//   console.log(
+//     "The transfer transaction from my account to the new account was: " +
+//       sendreceipt.status.toString()
+//   );
 
-// 	const query = await new AccountBalanceQuery()
-// 		.setAccountId(aliceId)
-// 		.execute(client);
-// 	console.log(
-// 		"The account balance after the transfer is: " +
-// 			query.hbars.toTinybars() +
-// 			" tinybar."
-// 	);
+//   const query = await new AccountBalanceQuery()
+//     .setAccountId(aliceId)
+//     .execute(client);
+//   console.log(
+//     "The account balance after the transfer is: " +
+//       query.hbars.toTinybars() +
+//       " tinybar."
+//   );
 // }
 // sendHbar();
