@@ -12,7 +12,8 @@
     "dao": "node ./dist/testing_dao.js",
     "dev": "node ./dist/index.js",
     "lint": "eslint src --ext js,ts",
-    "test": "forge test"
+    "test": "forge test",
+    "compile": "solcjs --bin ./src/contracts/Factory.sol -o ./src/contracts/bin && solcjs --abi ./src/contracts/Factory.sol -o ./src/contracts/abi && solcjs --bin ./src/contracts/Dao.sol -o ./src/contracts/bin && solcjs --abi ./src/contracts/Dao.sol -o ./src/contracts/abi && solcjs --bin ./src/contracts/Proxy.sol -o ./src/contracts/bin && solcjs --abi ./src/contracts/Proxy.sol -o ./src/contracts/abi"
   },
   "author": "",
   "license": "MIT",
