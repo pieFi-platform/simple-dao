@@ -11,6 +11,13 @@ contract Factory{
 
     event CreateMainEvent(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress);
     event CreateProxyEvent(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress, Dao _daoAddress);
+    event Test(string);
+
+    function testOnly() public returns(string memory){
+        string memory str = "Test";
+        emit Test(str);
+        return str;
+    }
 
     function createImp(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress) public returns(address){
         impContract = address(new Dao(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress));

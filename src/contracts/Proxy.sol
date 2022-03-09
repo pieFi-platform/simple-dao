@@ -27,6 +27,13 @@ contract DaoProxy is HederaTokenService{
     }
 
     event DelegateCallEvent(bool success, bytes result);
+    event Test(string);
+
+    function testOnly() public returns(string memory){
+        string memory str = "Test";
+        emit Test(str);
+        return str;
+    }
 
     function delegateCallWithAddress(bytes4 _selector, address _address) private {
         (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _address));

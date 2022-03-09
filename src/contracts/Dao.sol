@@ -22,6 +22,13 @@ contract Dao is HederaTokenService{
     }
 
     event MintToken(address tokenAddress, int256 response, uint64 newTotalSupply);
+    event Test(string);
+
+    function testOnly() public returns(string memory){
+        string memory str = "Test";
+        emit Test(str);
+        return str;
+    }
 
     function addOfficer(address _receiver) public onlyOfficer(){
         //Associate receiver account
