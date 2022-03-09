@@ -43,12 +43,18 @@ declare namespace NodeJS {
     IMP_ABI: string;
     IMP_FUNC_NAME: string;
     IMP_FUNC_PARAMS: string;
+    IMP_OFFICER_ID: string;
+    IMP_ADMIN_ID: string;
+    IMP_MEMBER_ID: string;
     PROXY_ID: string;
     PROXY_ADDRESS: string;
     PROXY_BIN: string;
     PROXY_ABI: string;
     PROXY_FUNC_NAME: string;
     PROXY_FUNC_PARAMS: string;
+    PROXY_OFFICER_ID: string;
+    PROXY_ADMIN_ID: string;
+    PROXY_MEMBER_ID: string;
     PROXY_NAME: string;
     PROXY_SYMBOL: string;
     NUM_OFFICERS: string;

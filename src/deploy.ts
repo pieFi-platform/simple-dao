@@ -156,7 +156,7 @@ export async function deployImp(
   factoryAbi: string,
   client: Client,
   treasuryKey: PrivateKey
-): Promise<string> {
+): Promise<[string, TokenId[]]> {
   const daoInput: DaoInput = {
     daoName: "Implementation",
     daoSymbol: "IMP",
@@ -164,9 +164,9 @@ export async function deployImp(
     adminSupply: 75,
     memberSupply: 100,
   };
-  const funcParams = await makeTokens(treasuryKey, client, daoInput);
+  const tokens = await makeTokens(treasuryKey, client, daoInput);
 
-  const _funcParams = funcParams.map((token: TokenId) => {
+  const funcParams = tokens.map((token: TokenId) => {
     return `0x${token.toSolidityAddress()}`;
   });
 
@@ -174,7 +174,7 @@ export async function deployImp(
     factoryId,
     factoryAbi,
     DEPLOY_IMP_FUNC_NAME,
-    _funcParams,
+    funcParams,
     client
   );
 
@@ -184,7 +184,7 @@ export async function deployImp(
   const impAddress = response.getAddress();
 
   // Update the supply keys
-  for (const token of funcParams) {
+  for (const token of tokens) {
     await updateTokenSupplyKey(
       token,
       ContractId.fromSolidityAddress(impAddress),
@@ -193,7 +193,7 @@ export async function deployImp(
     );
   }
 
-  return impAddress;
+  return [impAddress, tokens];
 }
 
 export async function deployProxy(
@@ -203,7 +203,7 @@ export async function deployProxy(
   client: Client,
   treasuryKey: PrivateKey,
   daoInput: DaoInput
-): Promise<string> {
+): Promise<[string, TokenId[]]> {
   const tokens = await makeTokens(treasuryKey, client, daoInput);
 
   const funcParams = tokens.map((token: TokenId) => {
@@ -233,5 +233,5 @@ export async function deployProxy(
     );
   }
 
-  return proxyAddress;
+  return [proxyAddress, tokens];
 }

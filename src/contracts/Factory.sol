@@ -20,13 +20,13 @@ contract Factory{
     }
 
     function createImp(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress) public returns(address){
-        impContract = address(new Dao(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress));
+        impContract = address(new Dao(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress, msg.sender));
         emit CreateMainEvent(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress);
         return impContract;
     }
 
     function createProxy(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress, Dao _impContract) public returns(address){
-        address p = address(new DaoProxy(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress, _impContract));
+        address p = address(new DaoProxy(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress, msg.sender, _impContract));
         proxies[p] = true;
         emit CreateProxyEvent(_officerTokenAddress, _adminTokenAddress, _memberTokenAddress, _impContract);
         return p;

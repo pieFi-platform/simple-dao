@@ -12,27 +12,71 @@ contract DaoProxy is HederaTokenService{
     // Additional state variables go below here
     Dao private daoAddress;
 
-    constructor(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress, Dao _daoAddress) {
+    constructor(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress, address _treasury, Dao _daoAddress) {
         s.officerTokenAddress = _officerTokenAddress;
         s.adminTokenAddress = _adminTokenAddress;
         s.memberTokenAddress = _memberTokenAddress;
 
-        s.treasury = msg.sender;
+        s.treasury = _treasury;
 
-        s.officers[msg.sender] = true;
-        s.admins[msg.sender] = true;
-        s.members[msg.sender] = true;
+        s.officers[_treasury] = true;
+        s.admins[_treasury] = true;
+        s.members[_treasury] = true;
 
         daoAddress = _daoAddress;
     }
 
     event DelegateCallEvent(bool success, bytes result);
-    event Test(string);
+    event TestStr(string, string);
+    event TestAddr(string, address);
 
-    function testOnly() public returns(string memory){
-        string memory str = "Test";
-        emit Test(str);
+    function getSender() public view returns(address){
+        return msg.sender;
+    }
+
+    function getTreasury() public view returns(address){
+        return s.treasury;
+    }
+
+    function delegateGetSender() public returns(bytes memory){
+        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.getSender.selector));
+        emit DelegateCallEvent(success, result);
+        return result;
+    }
+
+    function delegateGetTreasury() public returns(bytes memory){
+        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.getTreasury.selector));
+        emit DelegateCallEvent(success, result);
+        return result;
+    }
+
+    function testNoParam() public returns(string memory){
+        string memory str = "Test Proxy";
+        emit TestStr("Proxy", str);
         return str;
+    }
+
+    function testWithParam(string memory _param) public returns(string memory){
+        emit TestStr("Proxy", _param);
+        return _param;
+    }
+
+    function testAssociate(address _receiver) public returns(address){
+        delegateCallWithAddress(Dao.testAssociate.selector, _receiver);
+        emit TestAddr("Proxy", _receiver);
+        return _receiver;
+    }
+
+    function testTransfer(address _receiver) public returns(address){
+        delegateCallWithAddress(Dao.testTransfer.selector, _receiver);
+        emit TestAddr("Proxy", _receiver);
+        return _receiver;
+    }
+
+    function testAddAdmin(address _receiver) public returns(address){
+        delegateCallWithAddress(Dao.testAddAdmin.selector, _receiver);
+        emit TestAddr("Proxy", _receiver);
+        return _receiver;
     }
 
     function delegateCallWithAddress(bytes4 _selector, address _address) private {

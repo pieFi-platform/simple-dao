@@ -117,6 +117,7 @@ export async function callContractFunc(
   console.log(`Using contractId: ${contractId}`);
   console.log(`Using funcName: ${funcName}`);
   console.log(`Using params: ${funcParams}`);
+  console.log(`Using gas: ${gas}`);
 
   try {
     const tx = new ContractExecuteTransaction()
@@ -127,9 +128,12 @@ export async function callContractFunc(
       .setGas(gas)
       .freezeWith(client);
 
+    //    await tx.signWithOperator(client);
+
     if (keys) {
       for (const key of keys) {
-        tx.sign(key);
+        await tx.sign(key);
+        console.log("Sign successful");
       }
     }
 

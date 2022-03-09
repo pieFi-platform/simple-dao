@@ -28,13 +28,7 @@ export async function createDao(
   _numOfficers: number,
   _numAdmins: number,
   _numMembers: number
-): Promise<
-  | [
-      factoryContractId: ContractId,
-      implementationContractAddress: string,
-      proxyContractAddress: string
-    ]
-> {
+): Promise<[ContractId, string, string, TokenId[], TokenId[]]> {
   try {
     const daoInput = {
       daoName: _daoName,
@@ -57,14 +51,14 @@ export async function createDao(
       );
     }
 
-    const implementationContractAddress = await deployImp(
+    const [implementationContractAddress, impTokens] = await deployImp(
       factoryContractId,
       _factoryAbi,
       client,
       _treasuryKey
     );
 
-    const proxyContractAddress = await deployProxy(
+    const [proxyContractAddress, proxyTokens] = await deployProxy(
       factoryContractId,
       _factoryAbi,
       implementationContractAddress,
@@ -76,6 +70,8 @@ export async function createDao(
       factoryContractId,
       implementationContractAddress,
       proxyContractAddress,
+      impTokens,
+      proxyTokens,
     ];
   } catch (err) {
     console.log(err);
@@ -107,17 +103,22 @@ export async function grantAccess(
     const client = getClient(grantorId, grantorKey, network);
 
     //Add access
-    const functionParams = [granteeId.toString()];
+    const functionParams = [`0x${granteeId.toSolidityAddress()}`];
     const keys = [granteeKey, treasuryKey];
     console.log(`\n⏱ Granting access...`);
-    await callContractFunc(
+    const response = await callContractFunc(
       contractId,
       contractAbi,
       functionName,
       functionParams,
       client,
       keys
-    ); //We may need to pass in the granteeKey to sign the transaction (for associating) and _treasuryKey
+    );
+
+    console.log(`RESPONSE: ${response}`);
+    if (!response) {
+      throw new Error("callContractFun failed!");
+    }
 
     //Freeze Account
     const freezeTx = await new TokenFreezeTransaction()
@@ -135,8 +136,6 @@ export async function grantAccess(
     } else {
       console.log(`-The account freeze was a success!-`);
     }
-
-    await checkBalances();
   } catch (err) {
     console.log(err);
   }
@@ -184,7 +183,7 @@ export async function removeAccess(
     }
 
     //Remove access
-    const functionParams = [removeeId.toString()];
+    const functionParams = [`0x${removeeId.toSolidityAddress()}`];
     const keys = [removeeKey, treasuryKey];
     console.log(`\n⏱ Removing access...`);
     await callContractFunc(
@@ -195,8 +194,6 @@ export async function removeAccess(
       client,
       keys
     ); //We may need to pass in the removeeKey to sign the transaction (for dissociating) and _treasuryKey
-
-    await checkBalances();
   } catch (err) {
     console.log(err);
   }
@@ -230,7 +227,6 @@ export async function mintTokens(
     functionParams,
     client
   );
-  await checkBalances();
 }
 
 function valOrZero(input: any): Number {
@@ -238,7 +234,11 @@ function valOrZero(input: any): Number {
 }
 
 ///////////For Testing//////////////
-async function checkBalances() {
+export async function checkBalances(
+  officerTokenId: TokenId,
+  adminTokenId: TokenId,
+  memberTokenId: TokenId
+) {
   const treasuryId = AccountId.fromString(process.env.OPERATOR_ID);
   const treasuryKey = PrivateKey.fromString(process.env.OPERATOR_PVKEY);
   const aliceId = AccountId.fromString(process.env.TRANSFER_TEST_ID);
@@ -246,10 +246,6 @@ async function checkBalances() {
   const sallyId = AccountId.fromString(process.env.SALLY_ID);
 
   const client = Client.forTestnet().setOperator(treasuryId, treasuryKey);
-
-  const officerTokenId = TokenId.fromString(process.env.DAO_OFFICER_ID);
-  const adminTokenId = TokenId.fromString(process.env.DAO_ADMIN_ID);
-  const memberTokenId = TokenId.fromString(process.env.DAO_MEMBER_ID);
 
   const treasuryOffBalance = await checkBalance(treasuryId, officerTokenId);
   const treasuryAdBalance = await checkBalance(treasuryId, adminTokenId);
