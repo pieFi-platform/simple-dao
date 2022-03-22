@@ -1,34 +1,38 @@
 {
-	"name": "hedera-solidity-deployer3",
-	"version": "1.0.0",
-	"description": "Deploy Solidity Contracts to Hedera Locally",
-	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
-	"scripts": {
-		"deploy": "tsc && node ./dist/index.js",
-		"build": "tsc",
-		"solcjs": "solcjs",
-		"auto": "tsc --watch --preserveWatchOutput",
-		"dev": "node ./dist/index.js",
-		"lint": "eslint src --ext js,ts",
-		"test": "forge test"
-	},
-	"author": "",
-	"license": "MIT",
-	"dependencies": {
-		"@hashgraph/sdk": "^2.7.0",
-		"dotenv": "^16.0.0",
-		"prettier": "^2.5.1",
-		"solc": "^0.8.12",
-		"typescript": "^4.5.5"
-	},
-	"volta": {
-		"node": "16.14.0",
-		"yarn": "1.22.17"
-	},
-	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^5.12.1",
-		"@typescript-eslint/parser": "^5.12.1",
-		"eslint": "^8.9.0"
-	}
+  "name": "hedera-solidity-deployer3",
+  "version": "1.0.0",
+  "description": "Deploy Solidity Contracts to Hedera Locally",
+  "main": "dist/index.js",
+  "types": "src/index.d.ts",
+  "scripts": {
+    "deploy": "tsc && node ./dist/index.js",
+    "build": "tsc",
+    "solcjs": "solcjs",
+    "auto": "tsc --watch --preserveWatchOutput",
+    "dao": "node ./dist/testing_dao.js",
+    "dev": "node ./dist/index.js",
+    "lint": "eslint src --ext js,ts",
+    "test": "forge test",
+    "compile": "solcjs --bin ./src/contracts/Factory.sol -o ./src/contracts/bin && solcjs --abi ./src/contracts/Factory.sol -o ./src/contracts/abi && solcjs --bin ./src/contracts/Dao.sol -o ./src/contracts/bin && solcjs --abi ./src/contracts/Dao.sol -o ./src/contracts/abi && solcjs --bin ./src/contracts/Proxy.sol -o ./src/contracts/bin && solcjs --abi ./src/contracts/Proxy.sol -o ./src/contracts/abi"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@hashgraph/sdk": "^2.7.0",
+    "bignumber.js": "^9.0.2",
+    "dotenv": "^16.0.0",
+    "prettier": "^2.5.1",
+    "solc": "^0.8.12",
+    "typescript": "^4.5.5",
+    "web3": "^1.7.1"
+  },
+  "volta": {
+    "node": "16.14.0",
+    "yarn": "1.22.17"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.12.1",
+    "@typescript-eslint/parser": "^5.12.1",
+    "eslint": "^8.9.0"
+  }
 }

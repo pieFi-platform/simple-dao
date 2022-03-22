@@ -2,6 +2,9 @@ declare namespace NodeJS {
 	export interface ProcessEnv {
 		OPERATOR_ID: string;
 		OPERATOR_PVKEY: string;
+		TRANSFER_TEST_ID: string;
+		TRANSFER_TEST_PVKEY: string;
+		TRANSFER_TEST_PBKEY: string;
 		NETWORK: string;
 		KEYS: string;
 		BIN: string;
@@ -13,5 +16,16 @@ declare namespace NodeJS {
 		ADMIN_KEY: string | undefined;
 		PROXY_ACCOUNT_ID: string | undefined;
 		CONTRACT_MEMO: string | undefined;
+		DAO_OFFICER_ID: string;
+		DAO_ADMIN_ID: string;
+		DAO_MEMBER_ID: string;
+		CONTRACT_ID: string;
+		CONTRACT_ADDRESS: string;
+		BOB_ID: string;
+		BOB_PVKEY: string;
+		BOB_PBKEY: string;
+		SALLY_ID: string;
+		SALLY_PVKEY: string;
+		SALLY_PBKEY: string;
 	}
 }
