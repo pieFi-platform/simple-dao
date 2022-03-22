@@ -1,212 +1,102 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import "./hip-206/HederaTokenService.sol";
-import "./hip-206/HederaResponseCodes.sol";
-import "./Storage.sol";
+import "./DaoStorage.sol";
 
-contract Dao is HederaTokenService{
-    Storage internal s;
+contract Dao{
 
-    constructor(address _officerTokenAddress, address _adminTokenAddress, address _memberTokenAddress, address _treasury) {
-        s.officerTokenAddress = _officerTokenAddress;
-        s.adminTokenAddress = _adminTokenAddress;
-        s.memberTokenAddress = _memberTokenAddress;
+    DaoStorage internal state;
 
-        s.treasury = _treasury;
-
-        s.officers[_treasury] = true;
-        s.admins[_treasury] = true;
-        s.members[_treasury] = true;
+    constructor(string memory _daoName, address _topicAddress, address _owner) {
+        state.daoName = _daoName;
+        state.topicAddress = _topicAddress;
+        state.owner = hash(_owner);
+        state.maxUsers = 100000;
+        state.users[state.owner] = AccessType.Officer;
+        state.userCount++;
     }
 
-    event MintToken(address tokenAddress, int256 response, uint64 newTotalSupply);
-    event TestStr(string, string);
-    event TestAddr(string, address);
-
-    function getSender() public view returns(address){
-        return msg.sender;
+    function getMaxUsers() external view returns(uint32) {
+        return state.maxUsers;
     }
 
-    function getTreasury() public view returns(address){
-        return s.treasury;
+    function getTopicAddress() external view returns(address) {
+        return state.topicAddress;
     }
 
-    function testNoParam() public returns(string memory){
-        string memory str = "Test Imp";
-        emit TestStr("Imp", str);
-        return str;
+    function getDaoName() external view returns(string memory) {
+        return state.daoName;
     }
 
-    function testWithParam(string memory _param) public returns(string memory){
-        emit TestStr("Imp", _param);
-        return _param;
+    function getUserCount() external view returns(uint32) {
+        return state.userCount;
     }
 
-    function testAssociate(address _receiver) public returns(address){
-        //Associate receiver account
-        int responseAssociate = HederaTokenService.associateToken(_receiver, s.adminTokenAddress);
+    function setMaxUsers(uint32 _maxUsers) external onlyOwner(){
+        state.maxUsers = _maxUsers;
+    }
 
-        if (responseAssociate != HederaResponseCodes.SUCCESS) {
-            revert ("Admin Associate Failed");
+    function getUser(address _user) external view returns(AccessType) {
+        return state.users[hash(_user)];
+    }
+
+    function addUser(address[] memory _user, AccessType _type) public userCountCheck(_user.length){
+        AccessType senderType = state.users[hash(msg.sender)];
+
+        // Verify sender's authorization to grant provided access type
+        if (_type == AccessType.Officer) {
+            require(senderType == AccessType.Officer, "Not authorized to grant");
+        } else {
+            require(_type < senderType, "Not authorized to grant");
         }
-        emit TestAddr("Imp", _receiver);
-        return _receiver;
-    }
+        uint userLen = _user.length;
+        for (uint i=0; i<userLen; i++) {
+            bytes32 userHash = hash(_user[i]);
+            AccessType userType = state.users[userHash];
 
-    function testTransfer(address _receiver) public returns(address){
-        //Transfer token to receiver
-        int responseTransfer = HederaTokenService.transferToken(s.adminTokenAddress, s.treasury, _receiver, 1);
+            // Verify sender has authorization to update user's access
+            require(userType < senderType, "Not authorized to change access");
 
-        if (responseTransfer != HederaResponseCodes.SUCCESS) {
-            revert ("Admin Transfer Failed");
-        }
-        emit TestAddr("Imp", _receiver);
-        return _receiver;
-    }
-
-    function testAddAdmin(address _receiver) public returns(address){
-        s.admins[_receiver] = true;
-        emit TestAddr("Imp", _receiver);
-        return _receiver;
-    }
-
-    function addOfficer(address _receiver) public onlyOfficer(){
-        //Associate receiver account
-        int responseAssociate = HederaTokenService.associateToken(_receiver, s.officerTokenAddress);
-
-        if (responseAssociate != HederaResponseCodes.SUCCESS) {
-            revert ("Officer Associate Failed");
-        }
-        
-        //Transfer token to receiver
-        int responseTransfer = HederaTokenService.transferToken(s.officerTokenAddress, s.treasury, _receiver, 1);
-    
-        if (responseTransfer != HederaResponseCodes.SUCCESS) {
-            revert ("Officer Transfer Failed");
-        }
-        s.officers[_receiver] = true;
-    }
-
-    function addAdmin(address _receiver) public onlyOfficer(){
-        //Associate receiver account
-        int responseAssociate = HederaTokenService.associateToken(_receiver, s.adminTokenAddress);
-
-        if (responseAssociate != HederaResponseCodes.SUCCESS) {
-            revert ("Admin Associate Failed");
-        }
-        
-        //Transfer token to receiver
-        int responseTransfer = HederaTokenService.transferToken(s.adminTokenAddress, s.treasury, _receiver, 1);
-
-        if (responseTransfer != HederaResponseCodes.SUCCESS) {
-            revert ("Admin Transfer Failed");
-        }
-        s.admins[_receiver] = true;
-    }
-
-    function addMember(address _receiver) public onlyAdminOrOfficer(){
-        //Associate receiver account
-        int responseAssociate = HederaTokenService.associateToken(_receiver, s.memberTokenAddress);
-
-        if (responseAssociate != HederaResponseCodes.SUCCESS) {
-            revert ("Member Associate Failed");
-        }
-        
-        //Transfer token to receiver
-        int responseTransfer = HederaTokenService.transferToken(s.memberTokenAddress, s.treasury, _receiver, 1);
-
-        if (responseTransfer != HederaResponseCodes.SUCCESS) {
-            revert ("Member Transfer Failed");
-        }
-        s.members[_receiver] = true;
-    }
-
-    function removeMember(address _member) public onlyAdminOrOfficer(){
-        //Transfer token back to treasury
-        int responseTransfer = HederaTokenService.transferToken(s.memberTokenAddress, _member, s.treasury, 1);
-
-        if (responseTransfer != HederaResponseCodes.SUCCESS) {
-            revert ("Member Transfer Failed");
-        }
-
-        //Dissociate member account
-        int responseDissociate = HederaTokenService.dissociateToken(_member, s.memberTokenAddress);
-
-        if (responseDissociate != HederaResponseCodes.SUCCESS) {
-            revert ("Member Dissociate Failed");
-        }
-        
-        delete s.members[_member];
-    }
-
-    function removeAdmin(address _admin) public onlyOfficer(){
-        //Transfer token back to treasury
-        int responseTransfer = HederaTokenService.transferToken(s.adminTokenAddress, _admin, s.treasury, 1);
-
-        if (responseTransfer != HederaResponseCodes.SUCCESS) {
-            revert ("Admin Transfer Failed");
-        }
-
-        //Dissociate admin account
-        int responseDissociate = HederaTokenService.dissociateToken(_admin, s.adminTokenAddress);
-
-        if (responseDissociate != HederaResponseCodes.SUCCESS) {
-            revert ("admin Dissociate Failed");
-        }
-        
-        delete s.admins[_admin];
-    }
-
-    function mintOfficerTokens(uint64 _amount) external {
-        (
-            int256 response,
-            uint64 newTotalSupply,
-            //int64[] memory serialNumbers
-        ) = HederaTokenService.mintToken(s.officerTokenAddress, _amount, new bytes[](0));
-
-        emit MintToken(s.officerTokenAddress, response, newTotalSupply);
-
-        if (response != HederaResponseCodes.SUCCESS) {
-            revert("Officer Mint Failed");
+            state.users[userHash] = _type;
+            state.userCount++;
         }
     }
 
-    function mintAdminTokens(uint64 _amount) external {
-        (
-            int256 response,
-            uint64 newTotalSupply,
-            //int64[] memory serialNumbers
-        ) = HederaTokenService.mintToken(s.adminTokenAddress, _amount, new bytes[](0));
+    function removeUser(address[] memory _user) public {
+        bytes32 senderHash = hash(msg.sender);
+        uint userLen = _user.length;
+        for (uint i=0; i<userLen; i++) {
+            bytes32 userHash = hash(_user[i]);
+            AccessType userType = state.users[userHash];
 
-        emit MintToken(s.adminTokenAddress, response, newTotalSupply);
-
-        if (response != HederaResponseCodes.SUCCESS) {
-            revert("Admin Mint Failed");
+            // Verify sender's authorization to remove provided access type
+            if (userType == AccessType.None) {
+                revert("Not a user");
+            } else {
+                require(state.users[senderHash] > userType, "Not authorized to remove user");
+            } 
+            
+            delete state.users[userHash];
+            state.userCount--;
         }
     }
 
-    function mintMemberTokens(uint64 _amount) external {
-        (
-            int256 response,
-            uint64 newTotalSupply,
-            //int64[] memory serialNumbers
-        ) = HederaTokenService.mintToken(s.memberTokenAddress, _amount, new bytes[](0));
-
-        emit MintToken(s.memberTokenAddress, response, newTotalSupply);
-
-        if (response != HederaResponseCodes.SUCCESS) {
-            revert("Member Mint Failed");
-        }
+    function removeOfficer(address _officer) external onlyOwner() {
+        delete state.users[hash(_officer)];
+        state.userCount--;
     }
 
-    modifier onlyOfficer() {
-        require(s.officers[msg.sender] == true, 'Only an Officer can perform this function');
-        _;
-    }
-    modifier onlyAdminOrOfficer() {
-        require(s.admins[msg.sender] == true || s.officers[msg.sender] == true, 'Only an Officer or an Admin can perform this function');
-        _;
+    function hash(address addr) internal pure returns (bytes32) {
+        return keccak256(abi.encode(addr));
     }
     
+    modifier userCountCheck(uint count) {
+        require((state.userCount + count) <= state.maxUsers, 'Max Users Exceeded');
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(state.owner == hash(msg.sender), 'Only owner is allowed');
+        _;
+    }
 }
