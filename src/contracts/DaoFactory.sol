@@ -19,13 +19,22 @@ contract DaoFactory{
         return str;
     }
 
-    function createImp(string _daoName, address _topicAddress) public returns(address){
+    /// Creates the implementation dao contract (only called once)
+    /// @param _daoName the name of the dao
+    /// @param _topicAddress an address of a topic previously created and attached to the dao
+    /// @return address the address of the implementation contract
+    function createImp(string memory _daoName, address _topicAddress) public returns(address){
         impContract = address(new Dao(_daoName, _topicAddress, msg.sender));
         emit CreateImpEvent(_daoName, _topicAddress);
         return impContract;
     }
 
-    function createProxy(string _daoName, address _topicAddress, Dao _impContract) public returns(address){
+    /// Creates a proxy dao contract
+    /// @param _daoName the name of the dao
+    /// @param _topicAddress an address of a topic previously created and attached to the dao
+    /// @param _impContract the address of the implementation contract
+    /// @return address the address of the new proxy contract
+    function createProxy(string memory _daoName, address _topicAddress, Dao _impContract) public returns(address){
         address proxyContract = address(new DaoProxy(_daoName, _topicAddress, msg.sender, _impContract));
         proxies[proxyContract] = true;
         emit CreateProxyEvent(_daoName, _topicAddress, _impContract);

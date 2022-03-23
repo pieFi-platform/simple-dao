@@ -24,25 +24,25 @@ contract DaoProxy{
 
     event DelegateCallEvent(bool success, bytes result);
 
-    function delegateCallAddUser(bytes4 _selector, address[] memory _addresses, AccessType _type) private {
-        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _addresses, _type));
-        emit DelegateCallEvent(success, result);
-    }
+    // function delegateCallAddUser(bytes4 _selector, address[] memory _addresses, AccessType _type) private {
+    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _addresses, _type));
+    //     emit DelegateCallEvent(success, result);
+    // }
 
-    function delegateCallRemoveUser(bytes4 _selector, address[] memory _addresses) private {
-        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _addresses));
-        emit DelegateCallEvent(success, result);
-    }
+    // function delegateCallRemoveUser(bytes4 _selector, address[] memory _addresses) private {
+    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _addresses));
+    //     emit DelegateCallEvent(success, result);
+    // }
 
-    function delegateCallWithAddress(bytes4 _selector, address _address) private {
-        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _address));
-        emit DelegateCallEvent(success, result);
-    }
+    // function delegateCallWithAddress(bytes4 _selector, address _address) private {
+    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _address));
+    //     emit DelegateCallEvent(success, result);
+    // }
 
-    function delegateCallWithUint(bytes4 _selector, uint32 _amount) private {
-        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _amount));
-        emit DelegateCallEvent(success, result);
-    }
+    // function delegateCallWithUint(bytes4 _selector, uint32 _amount) private {
+    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _amount));
+    //     emit DelegateCallEvent(success, result);
+    // }
 
     function getMaxUsers() external view returns(uint32) {
         return state.maxUsers;
@@ -61,7 +61,9 @@ contract DaoProxy{
     }
 
     function setMaxUsers(uint32 _maxUsers) external onlyOwner(){
-        delegateCallWithUint(Dao.setMaxUsers.selector, _maxUsers);
+        // delegateCallWithUint(Dao.setMaxUsers.selector, _maxUsers);
+        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.setMaxUsers.selector, _maxUsers));
+        emit DelegateCallEvent(success, result);
     }
 
     function getUser(address _user) external view returns(AccessType) {
@@ -88,7 +90,9 @@ contract DaoProxy{
         //     state.users[userHash] = _type;
         //     state.userCount++;
         // }
-        delegateCallAddUser(Dao.addUser.selector, _user, _type);
+        // delegateCallAddUser(Dao.addUser.selector, _user, _type);
+        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.addUser.selector, _user, _type));
+        emit DelegateCallEvent(success, result);
     }
 
     function removeUser(address[] memory _user) public {
@@ -108,13 +112,17 @@ contract DaoProxy{
         //     delete state.users[userHash];
         //     state.userCount--;
         // }
-        delegateCallRemoveUser(Dao.removeUser.selector, _user);
+        // delegateCallRemoveUser(Dao.removeUser.selector, _user);
+        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.removeUser.selector, _user));
+        emit DelegateCallEvent(success, result);
     }
 
     function removeOfficer(address _officer) external onlyOwner() {
         // delete state.users[hash(_officer)];
         // state.userCount--;
-        delegateCallWithAddress(Dao.removeOfficer.selector, _officer);
+        // delegateCallWithAddress(Dao.removeOfficer.selector, _officer);
+        (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.removeOfficer.selector, _officer));
+        emit DelegateCallEvent(success, result);
     }
 
     function hash(address addr) internal pure returns (bytes32) {
