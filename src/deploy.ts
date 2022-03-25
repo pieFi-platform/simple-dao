@@ -151,9 +151,9 @@ export async function deployFactory(
 		const factoryContractAddress = factoryContractId.toSolidityAddress();
 
 		// Log contract Id and Solidity address for contract
-		console.log(`✅The smart contract ID is: ${factoryContractId}`);
+		console.log(`✅The Factory contract ID is: ${factoryContractId}`);
 		console.log(
-			`✅The smart contract Solidity address is: ${factoryContractAddress} \n`
+			`✅The Factory contract Solidity address is: ${factoryContractAddress} \n`
 		);
 
 		return [factoryContractId, factoryContractAddress];
@@ -204,6 +204,9 @@ export async function deployImp(
 		throw new Error("Failed to deploy Implementation Contract");
 	}
 	const impAddress = response.getAddress();
+	console.log(
+		`✅The Implementation contract Solidity address is: ${impAddress} \n`
+	);
 
 	return [impAddress, daoTopicId];
 }
@@ -250,6 +253,7 @@ export async function deployProxy(
 		throw new Error("Failed to deploy Proxy Contract");
 	}
 	const proxyAddress = response.getAddress();
+	console.log(`✅The Proxy contract Solidity address is: ${impAddress} \n`);
 
 	return [proxyAddress, daoTopicId];
 }

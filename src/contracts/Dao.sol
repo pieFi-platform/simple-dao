@@ -40,18 +40,37 @@ contract Dao{
         return state.userCount;
     }
 
-    /// Allows only the owner to update the max users allowed in the dao
-    /// @param _maxUsers the new max user amount
-    function setMaxUsers(uint32 _maxUsers) external onlyOwner(){
-        state.maxUsers = _maxUsers;
-    }
-
     /// Queries the dao for a given user and returns the user's access to the dao
     /// @param _user the address of the user whose access is being queried
     /// @return AccessType an enum value indicating the access level of the user
     function getUser(address _user) external view returns(AccessType) {
         return state.users[hash(_user)];
     }
+
+    /// Queries the current Hbar balance of the dao
+    /// @return uint the current balance of the dao
+    function getBalance() public view returns(uint) {
+        return address(this).balance;
+    }
+
+    /// Allows only the owner to update the max users allowed in the dao
+    /// @param _maxUsers the new max user amount
+    function setMaxUsers(uint32 _maxUsers) external onlyOwner(){
+        state.maxUsers = _maxUsers;
+    }
+
+    /// Allows any address to send Hbar to the dao
+    function deposit() public payable {}
+
+
+    /// Allows only officers to transfer Hbar out of the dao to the specified account address
+    /// @param _to the address to which the Hbar will be sent
+    /// @param _amount the amount of Hbar to be sent
+    function transfer(address payable _to, uint _amount) public {
+        require(state.users[hash(msg.sender)] == AccessType.Officer, "Only Officers can transfer");
+        _to.transfer(_amount);
+    }
+
 
     /// Grants a list of accounts access to the dao
     ///         Grant Access:

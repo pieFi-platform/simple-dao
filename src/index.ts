@@ -10,14 +10,17 @@ import {
 	PrivateKey,
 } from "@hashgraph/sdk";
 import {
-	createDao,
+	createDaoFactory,
 	grantAccess,
 	removeAccess,
 	removeOfficer,
 	setMaxUsers,
 	checkBalances,
+	queryContractFunction,
+	depositHbar,
+	transferHbar,
 } from "./create_dao";
-import { getClient } from "./utils";
+import { getClient, queryContractFunc } from "./utils";
 
 const operatorId = AccountId.fromString(process.env.OPERATOR_ID);
 const operatorKey = PrivateKey.fromString(process.env.OPERATOR_PVKEY);
@@ -35,9 +38,9 @@ const daoName = process.env.PROXY_NAME;
 
 const client = getClient(operatorId, operatorKey, network);
 
-// const factoryId = ContractId.fromString(process.env.FACTORY_ID);
-// const impId = ContractId.fromString(process.env.IMP_ID);
-// const proxyId = ContractId.fromString(process.env.PROXY_ID);
+const factoryId = ContractId.fromString(process.env.FACTORY_ID);
+const impId = ContractId.fromString(process.env.IMP_ID);
+const proxyId = ContractId.fromString(process.env.PROXY_ID);
 
 const factoryBin = process.env.FACTORY_BIN;
 const factoryAbi = process.env.FACTORY_ABI;
@@ -59,7 +62,7 @@ async function fullDeploy() {
 		proxyContractAddress,
 		impTopic,
 		proxyTopic,
-	] = await createDao(
+	] = await createDaoFactory(
 		operatorId,
 		operatorKey,
 		network,
@@ -67,13 +70,13 @@ async function fullDeploy() {
 		factoryAbi,
 		daoName
 	);
-	console.log(
-		factoryContractId,
-		implementationContractAddress,
-		proxyContractAddress,
-		impTopic,
-		proxyTopic
-	);
+	// console.log(
+	// 	factoryContractId,
+	// 	implementationContractAddress,
+	// 	proxyContractAddress,
+	// 	impTopic,
+	// 	proxyTopic
+	// );
 }
 
 // async function getSender() {
@@ -135,12 +138,14 @@ async function grantAccessTest() {
 	await grantAccess(
 		contractId,
 		contractAbi,
-		operatorId,
-		operatorKey,
+		aliceId,
+		aliceKey,
 		network,
-		[aliceId, bobId],
+		[bobId],
 		AccessType.Member
 	);
+
+	balances();
 }
 
 async function removeAccessTest() {
@@ -150,14 +155,10 @@ async function removeAccessTest() {
 	// const contractId = impId;
 	// const contractAbi = impAbi;
 
-	await removeAccess(
-		contractId,
-		contractAbi,
-		operatorId,
-		operatorKey,
-		network,
-		[aliceId, bobId]
-	);
+	await removeAccess(contractId, contractAbi, sallyId, sallyKey, network, [
+		aliceId,
+	]);
+	balances();
 }
 
 async function removeOfficerTest() {
@@ -173,8 +174,85 @@ async function removeOfficerTest() {
 		operatorId,
 		operatorKey,
 		network,
-		aliceId
+		sallyId
 	);
+	balances();
+}
+
+async function getMaxUserTest() {
+	const contractId = proxyId;
+	const contractAbi = proxyAbi;
+
+	// const contractId = impId;
+	// const contractAbi = impAbi;
+
+	const result = await queryContractFunction(
+		contractId,
+		contractAbi,
+		operatorId,
+		operatorKey,
+		network,
+		"getMaxUsers"
+	);
+	console.log("Max users is: ", result?.getUint32());
+}
+
+async function getBalance() {
+	const contractId = proxyId;
+	const contractAbi = proxyAbi;
+
+	// const contractId = impId;
+	// const contractAbi = impAbi;
+
+	const result = await queryContractFunction(
+		contractId,
+		contractAbi,
+		operatorId,
+		operatorKey,
+		network,
+		"getBalance"
+	);
+	console.log(
+		"The contract Hbar balance is: ",
+		result?.getUint256().toString()
+	);
+}
+
+async function deposit() {
+	const contractId = proxyId;
+	const contractAbi = proxyAbi;
+
+	// const contractId = impId;
+	// const contractAbi = impAbi;
+
+	await depositHbar(
+		contractId,
+		contractAbi,
+		operatorId,
+		operatorKey,
+		network,
+		new Hbar(1)
+	);
+	getBalance();
+}
+
+async function transfer() {
+	const contractId = proxyId;
+	const contractAbi = proxyAbi;
+
+	// const contractId = impId;
+	// const contractAbi = impAbi;
+
+	await transferHbar(
+		contractId,
+		contractAbi,
+		aliceId,
+		aliceKey,
+		network,
+		aliceId,
+		1
+	);
+	getBalance();
 }
 
 async function setMaxUserTest() {
@@ -192,6 +270,8 @@ async function setMaxUserTest() {
 		network,
 		15
 	);
+
+	getMaxUserTest();
 }
 
 async function sendHbar() {
@@ -240,6 +320,18 @@ function main() {
 			break;
 		case "sendHbar":
 			sendHbar();
+			break;
+		case "getMaxUserTest":
+			getMaxUserTest();
+			break;
+		case "getBalance":
+			getBalance();
+			break;
+		case "deposit":
+			deposit();
+			break;
+		case "transfer":
+			transfer();
 			break;
 		// case "testNoParam":
 		// 	testNoParam();

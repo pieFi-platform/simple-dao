@@ -5,11 +5,13 @@ import {
 	ContractCallQuery,
 	ContractFunctionResult,
 	ContractId,
+	Hbar,
 	PrivateKey,
 	TopicCreateTransaction,
 	TopicId,
 } from "@hashgraph/sdk";
 import * as fs from "fs";
+// import { isFunctionTypeNode } from "typescript";
 import Web3 from "web3";
 
 const web3 = new Web3();
@@ -43,16 +45,20 @@ export function decodeFunctionResult(
 export function encodeFunctionCall(
 	functionName: string,
 	abiPath: string,
-	parameters: string[]
+	parameters: (string | string[])[]
 ) {
 	const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
 
 	const functionAbi = abi.find(
 		(func: any) => func.name === functionName && func.type === "function"
 	);
-	const encodedParametersHex = web3.eth.abi
-		.encodeFunctionCall(functionAbi, parameters)
-		.slice(2);
+	const functionParams = functionAbi.inputs;
+
+	const encodedParameters =
+		web3.eth.abi.encodeFunctionSignature(functionAbi) +
+		web3.eth.abi.encodeParameters(functionParams, parameters).slice(2);
+	const encodedParametersHex = encodedParameters.slice(2);
+
 	return Buffer.from(encodedParametersHex, "hex");
 }
 
@@ -106,31 +112,28 @@ export function getClient(
 
 /**
  * Calls a function on a smart contract that has previously been deployed to Hedera
- * @param contractId - the name of the function within the ABI
- * @param abiPath - the relative path for abi file of the contract
+ * @param contractId - the Hedera ContractId for the deployed contract that is being called
+ * @param abiPath - the relative path for the abi file of the contract
  * @param funcName- name of the function to be called on the contract
  * @param funcParams - the function's parameters
  * @param client - the Hedera client that will sign the contract function call
  * @param keys - a list of Hedera PrivateKeys that are required to sign the contract function call
+ * @param amount - amount of Hbar being transfered to the account if the function is payable
  * @returns result of the contract function call
  */
 export async function callContractFunc(
 	contractId: ContractId,
 	abiPath: string,
 	funcName: string,
-	funcParams: string[],
+	funcParams: (string | string[])[] | undefined,
 	client: Client,
-	keys: PrivateKey[] | null = null
+	keys: PrivateKey[] | null = null,
+	amount: Hbar | null = null
 ): Promise<ContractFunctionResult | null> {
 	let gas = 1000000;
 	if (process.env.CONTRACT_GAS) {
 		gas = Number(process.env.CONTRACT_GAS);
 	}
-
-	console.log(`Using contractId: ${contractId}`);
-	console.log(`Using funcName: ${funcName}`);
-	console.log(`Using params: ${funcParams}`);
-	console.log(`Using gas: ${gas}`);
 
 	try {
 		const tx = new ContractExecuteTransaction()
@@ -142,8 +145,12 @@ export async function callContractFunc(
 					funcParams ? funcParams : []
 				)
 			)
-			.setGas(gas)
-			.freezeWith(client);
+			.setGas(gas);
+
+		if (amount) {
+			tx.setPayableAmount(amount);
+		}
+		tx.freezeWith(client);
 
 		if (keys) {
 			for (const key of keys) {
@@ -155,17 +162,7 @@ export async function callContractFunc(
 		const response = await tx.execute(client);
 
 		const record = await response.getRecord(client);
-		console.log(record);
 
-		if (record.contractFunctionResult) {
-			console.log(
-				decodeFunctionResult(
-					funcName,
-					abiPath,
-					record.contractFunctionResult.bytes
-				)
-			);
-		}
 		const txStatus = record.receipt.status;
 		console.log(`The transaction status was: ${txStatus}`);
 		return record.contractFunctionResult;
@@ -177,30 +174,24 @@ export async function callContractFunc(
 
 /**
  * Queries a function on a smart contract that has previously been deployed to Hedera
- * @param contractId - the name of the function within the ABI
+ * @param contractId - the Hedera ContractId for the deployed contract that is being called
  * @param abiPath - the relative path for abi file of the contract
  * @param funcName- name of the function to be queried on the contract
  * @param funcParams - the function's parameters
  * @param client - the Hedera client that will sign the contract function query
- * @param keys - a list of Hedera PrivateKeys that are required to sign the contract function query
  * @returns result of the contract function call
  */
 export async function queryContractFunc(
 	contractId: ContractId,
 	abiPath: string,
 	funcName: string,
-	funcParams: string[],
+	funcParams: string[] | undefined,
 	client: Client
 ): Promise<ContractFunctionResult | null> {
-	let gas = 1000000;
+	let gas = 100000;
 	if (process.env.CONTRACT_GAS) {
 		gas = Number(process.env.CONTRACT_GAS);
 	}
-
-	console.log(`Using contractId: ${contractId}`);
-	console.log(`Using funcName: ${funcName}`);
-	console.log(`Using params: ${funcParams}`);
-	console.log(`Using gas: ${gas}`);
 
 	try {
 		const tx = new ContractCallQuery()
@@ -215,10 +206,6 @@ export async function queryContractFunc(
 			.setGas(gas);
 
 		const response = await tx.execute(client);
-
-		console.log(response);
-
-		console.log(decodeFunctionResult(funcName, abiPath, response.bytes));
 
 		return response;
 	} catch (err) {
@@ -242,7 +229,7 @@ export async function createTopic(
 
 		const operatorId = client.operatorAccountId;
 		const operatorPubKey = client.operatorPublicKey;
-		if (operatorId === null || operatorPubKey === null) {
+		if (!operatorId || !operatorPubKey) {
 			throw new Error(
 				"Client must have an AccountId and PublicKey attached"
 			);
@@ -252,7 +239,9 @@ export async function createTopic(
 		console.log(`⏱ Creating topic...`);
 		const topicTransaction = await new TopicCreateTransaction()
 			.setAdminKey(operatorPubKey)
-			.sign(operatorKey);
+			.freezeWith(client);
+
+		topicTransaction.sign(operatorKey);
 		const topicSubmit = await topicTransaction.execute(client);
 		const topicReceipt = await topicSubmit.getReceipt(client);
 		const topicId = topicReceipt.topicId;

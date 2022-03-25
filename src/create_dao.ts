@@ -1,7 +1,14 @@
 console.clear();
 import dotenv from "dotenv";
 dotenv.config();
-import { AccountId, PrivateKey, ContractId, TopicId } from "@hashgraph/sdk";
+import {
+	AccountId,
+	PrivateKey,
+	ContractId,
+	TopicId,
+	Hbar,
+	ContractFunctionResult,
+} from "@hashgraph/sdk";
 import { deployFactory, deployImp, deployProxy } from "./deploy";
 import { callContractFunc, queryContractFunc, getClient } from "./utils";
 
@@ -22,7 +29,7 @@ import { callContractFunc, queryContractFunc, getClient } from "./utils";
  *          (implementation) contract
  * @returns proxyTopicId - the Hedera TopicId for the topic stored on the DaoProxy contract
  */
-export async function createDao(
+export async function createDaoFactory(
 	operatorId: AccountId,
 	operatorKey: PrivateKey,
 	network: string,
@@ -47,7 +54,6 @@ export async function createDao(
 		let factoryContractId;
 		if (process.env.FACTORY_ID && process.env.FACTORY_ADDRESS) {
 			factoryContractId = ContractId.fromString(process.env.FACTORY_ID);
-			// factoryContractAddress = process.env.FACTORY_ADDRESS;
 		} else {
 			[factoryContractId] = await deployFactory(
 				client,
@@ -85,6 +91,58 @@ export async function createDao(
 }
 
 /**
+ * Creates and deploys a Dao Proxy contract on an existing Dao Factory
+ * @param operatorId - the AccountId for the owner of the Dao contract
+ * @param operatorKey - the PrivateKey for the owner of the Dao contract
+ * @param network - the network that the contract should be deployed on: either Testnet or Mainnet
+ * @param factoryContractId - the Hedera ContractId for the deployed DaoFactory contract
+ * @param implementationContractAddress - the solidity address for the deployed Dao
+ *          (implementation) contract
+ * @param factoryAbi - the relative path for abi file of the Factory contract
+ * @param daoName - the name of the Dao that is being created. The dao name must be 32 characters
+ *                  or less.
+ * @returns proxyContractAddress - the solidity address for the deployed DaoProxy contract
+ * @returns proxyTopicId - the Hedera TopicId for the topic stored on the DaoProxy contract
+ */
+export async function createDao(
+	operatorId: AccountId,
+	operatorKey: PrivateKey,
+	network: string,
+	factoryContractId: ContractId,
+	implementationContractAddress: string,
+	factoryAbi: string,
+	daoName: string
+): Promise<[string, TopicId]> {
+	try {
+		const MAX_STRING_SIZE = 32; // The max string size for the dao's name is 32 bytes
+		const daoInput = {
+			daoName: daoName,
+		};
+
+		const nameSize = Buffer.from(daoName).length;
+
+		if (nameSize > MAX_STRING_SIZE) {
+			throw new Error("❌The Dao name must be 32 characters or less❌");
+		}
+
+		const client = getClient(operatorId, operatorKey, network);
+
+		const [proxyContractAddress, proxyTopicId] = await deployProxy(
+			factoryContractId,
+			factoryAbi,
+			implementationContractAddress,
+			client,
+			operatorKey,
+			daoInput
+		);
+		return [proxyContractAddress, proxyTopicId];
+	} catch (err) {
+		console.log(err);
+		throw err;
+	}
+}
+
+/**
  * Grants Dao access to a list of Hedera accounts
  *        Grant Access:
  *        Officers - Officers, Admins and Members
@@ -112,10 +170,10 @@ export async function grantAccess(
 		const functionName = `addUser`;
 
 		//Add access
-		const functionParams = userIds.map((account: AccountId) => {
+		const userArr = userIds.map((account: AccountId) => {
 			return `0x${account.toSolidityAddress()}`;
 		});
-		functionParams.push(accessType.toString());
+		const functionParams = [userArr, accessType.toString()];
 		console.log(`\n⏱ Granting access...`);
 		const response = await callContractFunc(
 			contractId,
@@ -124,8 +182,6 @@ export async function grantAccess(
 			functionParams,
 			client
 		);
-
-		console.log(`RESPONSE: ${response}`);
 		if (!response) {
 			throw new Error("❌Grant Access Failed❌");
 		}
@@ -160,17 +216,23 @@ export async function removeAccess(
 		const functionName = `removeUser`;
 
 		//Remove access
-		const functionParams = userIds.map((account: AccountId) => {
+		const userArr = userIds.map((account: AccountId) => {
 			return `0x${account.toSolidityAddress()}`;
 		});
+
+		const functionParams = [userArr];
 		console.log(`\n⏱ Removing access...`);
-		await callContractFunc(
+		const response = await callContractFunc(
 			contractId,
 			contractAbi,
 			functionName,
 			functionParams,
 			client
 		);
+
+		if (!response) {
+			throw new Error("❌Remove Access Failed❌");
+		}
 	} catch (err) {
 		console.log(err);
 	}
@@ -202,13 +264,101 @@ export async function removeOfficer(
 		//Remove access
 		const functionParams = [`0x${officerId.toSolidityAddress()}`];
 		console.log(`\n⏱ Removing access...`);
-		await callContractFunc(
+		const response = await callContractFunc(
 			contractId,
 			contractAbi,
 			functionName,
 			functionParams,
 			client
 		);
+
+		if (!response) {
+			throw new Error("❌Remove Access Failed❌");
+		}
+	} catch (err) {
+		console.log(err);
+	}
+}
+
+/**
+ * Deposits Hbar into the Dao
+ * @param contractId - the Hedera ContractId for the deployed DaoProxy contract
+ * @param contractAbi - the relative path for abi file of the DaoProxy contract
+ * @param operatorId - the AccountId for the account depositing Hbar into the dao
+ * @param operatorKey - the PrivateKey for the account depositing Hbar into the dao
+ * @param network - the network that the contract is deployed on: either Testnet or Mainnet
+ * @param amount - amount of Hbar being transfered
+ */
+export async function depositHbar(
+	contractId: ContractId,
+	contractAbi: string,
+	operatorId: AccountId,
+	operatorKey: PrivateKey,
+	network: string,
+	amount: Hbar
+) {
+	try {
+		const client = getClient(operatorId, operatorKey, network);
+		const functionName = `deposit`;
+
+		//Deposit Hbar
+		const response = await callContractFunc(
+			contractId,
+			contractAbi,
+			functionName,
+			undefined,
+			client,
+			undefined,
+			amount
+		);
+
+		if (!response) {
+			throw new Error("❌Hbar Deposit Failed❌");
+		}
+	} catch (err) {
+		console.log(err);
+	}
+}
+
+/**
+ * Transfers Hbar from the Dao to the specified account
+ * 			Transfer Access:
+ * 			Officers
+ * @param contractId - the Hedera ContractId for the deployed DaoProxy contract
+ * @param contractAbi - the relative path for abi file of the DaoProxy contract
+ * @param operatorId - the AccountId for the officer transfering Hbar from the dao
+ * @param operatorKey - the PrivateKey for the officer transfering Hbar from the dao
+ * @param network - the network that the contract is deployed on: either Testnet or Mainnet
+ * @param transferTo - AccountId for account where the Hbar will be transfered to
+ * @param amount - amount of tinybar being transfered as number type
+ */
+export async function transferHbar(
+	contractId: ContractId,
+	contractAbi: string,
+	operatorId: AccountId,
+	operatorKey: PrivateKey,
+	network: string,
+	transferTo: AccountId,
+	amount: number
+) {
+	try {
+		const client = getClient(operatorId, operatorKey, network);
+		const functionName = `transfer`;
+
+		//Transfer Hbar
+		const functionParams = [`0x${transferTo.toSolidityAddress()}`];
+		functionParams.push(amount.toString());
+		const response = await callContractFunc(
+			contractId,
+			contractAbi,
+			functionName,
+			functionParams,
+			client
+		);
+
+		if (!response) {
+			throw new Error("❌Hbar Transfer Failed❌");
+		}
 	} catch (err) {
 		console.log(err);
 	}
@@ -220,8 +370,8 @@ export async function removeOfficer(
  *        Owner
  * @param contractId - the Hedera ContractId for the deployed DaoProxy contract
  * @param contractAbi - the relative path for abi file of the DaoProxy contract
- * @param ownerId - the AccountId for the Dao user removing access
- * @param ownerKey - the PrivateKey for the Dao user removing access
+ * @param ownerId - the AccountId for the owner of the Dao
+ * @param ownerKey - the PrivateKey for the owner of the Dao
  * @param network - the network that the contract is deployed on: either Testnet or Mainnet
  * @param maxUserAmount - New maximum user amount
  */
@@ -237,16 +387,19 @@ export async function setMaxUsers(
 		const client = getClient(ownerId, ownerKey, network);
 		const functionName = `setMaxUsers`;
 
-		//Remove access
+		//Setting max users
 		const functionParams = [maxUserAmount.toString()];
-		console.log(`\n⏱ Removing access...`);
-		await callContractFunc(
+		const response = await callContractFunc(
 			contractId,
 			contractAbi,
 			functionName,
 			functionParams,
 			client
 		);
+
+		if (!response) {
+			throw new Error("❌Setting Max Users Failed❌");
+		}
 	} catch (err) {
 		console.log(err);
 	}
@@ -268,23 +421,61 @@ export async function getUserAccess(
 	operatorKey: PrivateKey,
 	network: string,
 	userId: AccountId
-) {
+): Promise<ContractFunctionResult | null> {
 	try {
 		const client = getClient(operatorId, operatorKey, network);
 		const functionName = `getUser`;
 
 		//Query contract
 		const functionParams = [`0x${userId.toSolidityAddress()}`];
-		console.log(`\n⏱ Querying User Access...`);
-		await queryContractFunc(
+		const queryResult = await queryContractFunc(
 			contractId,
 			contractAbi,
 			functionName,
 			functionParams,
 			client
 		);
+
+		return queryResult;
 	} catch (err) {
 		console.log(err);
+		return null;
+	}
+}
+
+/**
+ * Queries a function on the contract that takes no parameters
+ * @param contractId - the Hedera ContractId for the deployed DaoProxy contract
+ * @param contractAbi - the relative path for abi file of the DaoProxy contract
+ * @param operatorId - the AccountId for the client preforming the query
+ * @param operatorKey - the PrivateKey for the client preforming the query
+ * @param network - the network that the contract is deployed on: either Testnet or Mainnet
+ * @param functionName - the name of the function you want to query
+ */
+export async function queryContractFunction(
+	contractId: ContractId,
+	contractAbi: string,
+	operatorId: AccountId,
+	operatorKey: PrivateKey,
+	network: string,
+	functionName: string
+): Promise<ContractFunctionResult | null> {
+	try {
+		const client = getClient(operatorId, operatorKey, network);
+
+		//Query contract
+		const queryResult = await queryContractFunc(
+			contractId,
+			contractAbi,
+			functionName,
+			undefined,
+			client
+		);
+
+		return queryResult;
+	} catch (err) {
+		console.log(err);
+		return null;
 	}
 }
 
@@ -308,7 +499,9 @@ export async function checkBalances(
 		network,
 		operatorId
 	);
-	console.log(`Operator's access type is: ${operatorAccess}`);
+	const operatorType = operatorAccess?.getUint256();
+	console.log(`Operator's access type is: ${operatorType}`);
+
 	const aliceAccess = await getUserAccess(
 		contractId,
 		contractAbi,
@@ -317,7 +510,9 @@ export async function checkBalances(
 		network,
 		aliceId
 	);
-	console.log(`Alice's access type is: ${aliceAccess}`);
+	const aliceType = aliceAccess?.getUint256();
+	console.log(`Alice's access type is: ${aliceType}`);
+
 	const bobAccess = await getUserAccess(
 		contractId,
 		contractAbi,
@@ -326,7 +521,9 @@ export async function checkBalances(
 		network,
 		bobId
 	);
-	console.log(`Bob's access type is: ${bobAccess}`);
+	const bobType = bobAccess?.getUint256();
+	console.log(`Bob's access type is: ${bobType}`);
+
 	const sallyAccess = await getUserAccess(
 		contractId,
 		contractAbi,
@@ -335,5 +532,6 @@ export async function checkBalances(
 		network,
 		sallyId
 	);
-	console.log(`Sally's access type is: ${sallyAccess}`);
+	const sallyType = sallyAccess?.getUint256();
+	console.log(`Sally's access type is: ${sallyType}`);
 }
