@@ -11,13 +11,6 @@ contract DaoFactory{
 
     event CreateImpEvent(string _daoName, address _topicAddress);
     event CreateProxyEvent(string _daoName, address _topicAddress, Dao _daoAddress);
-    event Test(string);
-
-    function testOnly() public returns(string memory){
-        string memory str = "Test";
-        emit Test(str);
-        return str;
-    }
 
     /// Creates the implementation dao contract (only called once)
     /// @param _daoName the name of the dao

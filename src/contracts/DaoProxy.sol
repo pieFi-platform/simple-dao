@@ -23,26 +23,11 @@ contract DaoProxy{
     }
 
     event DelegateCallEvent(bool success, bytes result);
-
-    // function delegateCallAddUser(bytes4 _selector, address[] memory _addresses, AccessType _type) private {
-    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _addresses, _type));
-    //     emit DelegateCallEvent(success, result);
-    // }
-
-    // function delegateCallRemoveUser(bytes4 _selector, address[] memory _addresses) private {
-    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _addresses));
-    //     emit DelegateCallEvent(success, result);
-    // }
-
-    // function delegateCallWithAddress(bytes4 _selector, address _address) private {
-    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _address));
-    //     emit DelegateCallEvent(success, result);
-    // }
-
-    // function delegateCallWithUint(bytes4 _selector, uint32 _amount) private {
-    //     (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(_selector, _amount));
-    //     emit DelegateCallEvent(success, result);
-    // }
+    
+    /// Allows owner to update implementation contract
+    function setImpAddress(Dao _daoAddress) external onlyOwner() {
+        daoAddress = _daoAddress;
+    }
 
     /// Queries the current max user limit of the dao
     /// @return uint32 the current max users limit state value
@@ -86,7 +71,7 @@ contract DaoProxy{
     function setMaxUsers(uint32 _maxUsers) external onlyOwner(){
         // delegateCallWithUint(Dao.setMaxUsers.selector, _maxUsers);
         (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.setMaxUsers.selector, _maxUsers));
-        //require(success, string(result));   - Consider adding this in so the proxy call will actually fail if the imp contract fails
+        require(success, string(result));
         emit DelegateCallEvent(success, result);
     }
 
@@ -100,6 +85,7 @@ contract DaoProxy{
         // require(state.users[hash(msg.sender)] == AccessType.Officer, "Only Officers can transfer");
         // _to.transfer(_amount);
         (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.transfer.selector, _to, _amount));
+        require(success, string(result));
         emit DelegateCallEvent(success, result);
     }
 
@@ -132,6 +118,7 @@ contract DaoProxy{
         // }
         // delegateCallAddUser(Dao.addUser.selector, _user, _type);
         (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.addUser.selector, _user, _type));
+        require(success, string(result));
         emit DelegateCallEvent(success, result);
     }
 
@@ -160,6 +147,7 @@ contract DaoProxy{
         // }
         // delegateCallRemoveUser(Dao.removeUser.selector, _user);
         (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.removeUser.selector, _user));
+        require(success, string(result));
         emit DelegateCallEvent(success, result);
     }
 
@@ -172,6 +160,7 @@ contract DaoProxy{
         // state.userCount--;
         // delegateCallWithAddress(Dao.removeOfficer.selector, _officer);
         (bool success, bytes memory result) = address(daoAddress).delegatecall(abi.encodeWithSelector(Dao.removeOfficer.selector, _officer));
+        require(success, string(result));
         emit DelegateCallEvent(success, result);
     }
 

@@ -103,7 +103,7 @@ export async function deployFactory(
 		console.log(`✅The file append was a : ${fileAppendRx.status} 👍 \n`);
 
 		//////////////////Instantiate smart contract//////////////////
-		console.log(`⏱ Creating smart contract...`);
+		console.log(`⏱ Creating Factory contract...`);
 		let gas: number = 1000000;
 		if (process.env.CONTRACT_GAS) {
 			gas = parseInt(process.env.CONTRACT_GAS);
@@ -192,6 +192,7 @@ export async function deployImp(
 		`0x${daoTopicId.toSolidityAddress()}`,
 	];
 
+	console.log(`⏱ Creating Implementation contract...`);
 	const response = await callContractFunc(
 		factoryId,
 		factoryAbi,
@@ -204,6 +205,8 @@ export async function deployImp(
 		throw new Error("Failed to deploy Implementation Contract");
 	}
 	const impAddress = response.getAddress();
+	const impId = `0.0.${parseInt(impAddress, 16)}`; //Convert hex to dec to get the ContractId
+	console.log(`✅The Implementation contract ID is: ${impId}`);
 	console.log(
 		`✅The Implementation contract Solidity address is: ${impAddress} \n`
 	);
@@ -241,6 +244,7 @@ export async function deployProxy(
 		`0x${impAddress}`,
 	];
 
+	console.log(`⏱ Creating Proxy contract...`);
 	const response = await callContractFunc(
 		factoryId,
 		factoryAbi,
@@ -253,7 +257,9 @@ export async function deployProxy(
 		throw new Error("Failed to deploy Proxy Contract");
 	}
 	const proxyAddress = response.getAddress();
-	console.log(`✅The Proxy contract Solidity address is: ${impAddress} \n`);
+	const proxyId = `0.0.${parseInt(proxyAddress, 16)}`; //Convert hex to dec to get the ContractId
+	console.log(`✅The Proxy contract ID is: ${proxyId}`);
+	console.log(`✅The Proxy contract Solidity address is: ${proxyAddress} \n`);
 
 	return [proxyAddress, daoTopicId];
 }

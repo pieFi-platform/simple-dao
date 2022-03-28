@@ -163,8 +163,8 @@ export async function callContractFunc(
 
 		const record = await response.getRecord(client);
 
-		const txStatus = record.receipt.status;
-		console.log(`The transaction status was: ${txStatus}`);
+		// const txStatus = record.receipt.status;
+		// console.log(`The transaction status was: ${txStatus}`);
 		return record.contractFunctionResult;
 	} catch (err) {
 		console.log(err);
@@ -236,7 +236,6 @@ export async function createTopic(
 		}
 
 		// Create topic
-		console.log(`⏱ Creating topic...`);
 		const topicTransaction = await new TopicCreateTransaction()
 			.setAdminKey(operatorPubKey)
 			.freezeWith(client);
@@ -254,7 +253,7 @@ export async function createTopic(
 		const topicAddressSol = topicId.toSolidityAddress();
 
 		console.log(
-			`✅ The topicId is : ${topicId} \n✅ The topic address in solidity format is ${topicAddressSol}`
+			`- The topicId is : ${topicId} \n- The topic address in solidity format is ${topicAddressSol}\n`
 		);
 
 		return topicId;

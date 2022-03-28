@@ -3,6 +3,10 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "./DaoStorage.sol";
 
+error NotUser(address addr);
+error RemovalAuth(address user, AccessType userType);
+error AccessUpdateAuth(address user, AccessType userType);
+
 contract Dao{
 
     DaoStorage internal state;
@@ -66,7 +70,7 @@ contract Dao{
     /// Allows only officers to transfer Hbar out of the dao to the specified account address
     /// @param _to the address to which the Hbar will be sent
     /// @param _amount the amount of Hbar to be sent
-    function transfer(address payable _to, uint _amount) public {
+    function transferHbar(address payable _to, uint _amount) public {
         require(state.users[hash(msg.sender)] == AccessType.Officer, "Only Officers can transfer");
         _to.transfer(_amount);
     }
@@ -94,10 +98,15 @@ contract Dao{
             AccessType userType = state.users[userHash];
 
             // Verify sender has authorization to update user's access
-            require(userType < senderType, "Not authorized to change access");
+            if (userType >= senderType) {
+                revert AccessUpdateAuth(_user[i], userType);
+            }
 
             state.users[userHash] = _type;
-            state.userCount++;
+            if (userType == AccessType.None){
+                // Its a new user, so update state.userCount
+                state.userCount++;
+            }
         }
     }
 
@@ -116,9 +125,9 @@ contract Dao{
 
             // Verify sender's authorization to remove provided access type
             if (userType == AccessType.None) {
-                revert("Not a user");
-            } else {
-                require(state.users[senderHash] > userType, "Not authorized to remove user");
+                revert NotUser(_user[i]);
+            } else if (state.users[senderHash] <= userType) {
+                revert RemovalAuth(_user[i], userType);
             } 
 
             delete state.users[userHash];
@@ -131,7 +140,9 @@ contract Dao{
     ///         Owner - Officer
     /// @param _officer address of the officer being removed
     function removeOfficer(address _officer) external onlyOwner() {
-        delete state.users[hash(_officer)];
+        bytes32 userHash = hash(_officer);
+        require(state.users[userHash] == AccessType.Officer, "Not an officer");
+        delete state.users[userHash];
         state.userCount--;
     }
 

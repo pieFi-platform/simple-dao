@@ -343,7 +343,7 @@ export async function transferHbar(
 ) {
 	try {
 		const client = getClient(operatorId, operatorKey, network);
-		const functionName = `transfer`;
+		const functionName = `transferHbar`;
 
 		//Transfer Hbar
 		const functionParams = [`0x${transferTo.toSolidityAddress()}`];
