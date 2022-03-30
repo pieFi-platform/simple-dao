@@ -1,8 +1,8 @@
 import {
 	AccountId,
 	Client,
-	ContractExecuteTransaction,
 	ContractCallQuery,
+	ContractExecuteTransaction,
 	ContractFunctionResult,
 	ContractId,
 	Hbar,
@@ -11,7 +11,6 @@ import {
 	TopicId,
 } from "@hashgraph/sdk";
 import * as fs from "fs";
-// import { isFunctionTypeNode } from "typescript";
 import Web3 from "web3";
 
 const web3 = new Web3();
@@ -163,8 +162,6 @@ export async function callContractFunc(
 
 		const record = await response.getRecord(client);
 
-		// const txStatus = record.receipt.status;
-		// console.log(`The transaction status was: ${txStatus}`);
 		return record.contractFunctionResult;
 	} catch (err) {
 		console.log(err);

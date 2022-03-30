@@ -3,14 +3,14 @@ import dotenv from "dotenv";
 dotenv.config();
 import {
 	AccountId,
-	PrivateKey,
-	ContractId,
-	TopicId,
-	Hbar,
 	ContractFunctionResult,
+	ContractId,
+	Hbar,
+	PrivateKey,
+	TopicId,
 } from "@hashgraph/sdk";
 import { deployFactory, deployImp, deployProxy } from "./deploy";
-import { callContractFunc, queryContractFunc, getClient } from "./utils";
+import { callContractFunc, getClient, queryContractFunc } from "./utils";
 
 /**
  * Creates and deploys the Dao Factory, Implementation, and Proxy contracts
@@ -51,16 +51,11 @@ export async function createDaoFactory(
 
 		const client = getClient(operatorId, operatorKey, network);
 
-		let factoryContractId;
-		if (process.env.FACTORY_ID && process.env.FACTORY_ADDRESS) {
-			factoryContractId = ContractId.fromString(process.env.FACTORY_ID);
-		} else {
-			[factoryContractId] = await deployFactory(
-				client,
-				factoryBin,
-				operatorKey
-			);
-		}
+		const [factoryContractId] = await deployFactory(
+			client,
+			factoryBin,
+			operatorKey
+		);
 
 		const [implementationContractAddress, impTopicId] = await deployImp(
 			factoryContractId,
@@ -477,61 +472,4 @@ export async function queryContractFunction(
 		console.log(err);
 		return null;
 	}
-}
-
-///////////For Testing//////////////
-export async function checkBalances(
-	contractId: ContractId,
-	contractAbi: string
-) {
-	const operatorId = AccountId.fromString(process.env.OPERATOR_ID);
-	const operatorKey = PrivateKey.fromString(process.env.OPERATOR_PVKEY);
-	const aliceId = AccountId.fromString(process.env.TRANSFER_TEST_ID);
-	const bobId = AccountId.fromString(process.env.BOB_ID);
-	const sallyId = AccountId.fromString(process.env.SALLY_ID);
-	const network = process.env.NETWORK;
-
-	const operatorAccess = await getUserAccess(
-		contractId,
-		contractAbi,
-		operatorId,
-		operatorKey,
-		network,
-		operatorId
-	);
-	const operatorType = operatorAccess?.getUint256();
-	console.log(`Operator's access type is: ${operatorType}`);
-
-	const aliceAccess = await getUserAccess(
-		contractId,
-		contractAbi,
-		operatorId,
-		operatorKey,
-		network,
-		aliceId
-	);
-	const aliceType = aliceAccess?.getUint256();
-	console.log(`Alice's access type is: ${aliceType}`);
-
-	const bobAccess = await getUserAccess(
-		contractId,
-		contractAbi,
-		operatorId,
-		operatorKey,
-		network,
-		bobId
-	);
-	const bobType = bobAccess?.getUint256();
-	console.log(`Bob's access type is: ${bobType}`);
-
-	const sallyAccess = await getUserAccess(
-		contractId,
-		contractAbi,
-		operatorId,
-		operatorKey,
-		network,
-		sallyId
-	);
-	const sallyType = sallyAccess?.getUint256();
-	console.log(`Sally's access type is: ${sallyType}`);
 }

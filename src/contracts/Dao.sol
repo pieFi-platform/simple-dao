@@ -14,8 +14,8 @@ contract Dao{
     constructor(string memory _daoName, address _topicAddress, address _owner) {
         state.daoName = _daoName;
         state.topicAddress = _topicAddress;
-        state.owner = hash(_owner);
-        state.maxUsers = 100000;
+        state.owner = _owner;
+        state.maxUsers = 100000;         // At time of development, max users per dao is about 160k - currently capping at 100k 
         state.users[state.owner] = AccessType.Officer;
         state.userCount++;
     }
@@ -48,7 +48,7 @@ contract Dao{
     /// @param _user the address of the user whose access is being queried
     /// @return AccessType an enum value indicating the access level of the user
     function getUser(address _user) external view returns(AccessType) {
-        return state.users[hash(_user)];
+        return state.users[_user];
     }
 
     /// Queries the current Hbar balance of the dao
@@ -71,7 +71,7 @@ contract Dao{
     /// @param _to the address to which the Hbar will be sent
     /// @param _amount the amount of Hbar to be sent
     function transferHbar(address payable _to, uint _amount) public {
-        require(state.users[hash(msg.sender)] == AccessType.Officer, "Only Officers can transfer");
+        require(state.users[msg.sender] == AccessType.Officer, "Only Officers can transfer");
         _to.transfer(_amount);
     }
 
@@ -84,7 +84,7 @@ contract Dao{
     /// @param _user an array of account address to be added as users of the dao
     /// @param _type an enum specifying the type of access the new users will have
     function addUser(address[] memory _user, AccessType _type) public userCountCheck(_user.length){
-        AccessType senderType = state.users[hash(msg.sender)];
+        AccessType senderType = state.users[msg.sender];
 
         // Verify sender's authorization to grant provided access type
         if (_type == AccessType.Officer) {
@@ -94,17 +94,16 @@ contract Dao{
         }
         uint userLen = _user.length;
         for (uint i=0; i<userLen; i++) {
-            bytes32 userHash = hash(_user[i]);
-            AccessType userType = state.users[userHash];
+            AccessType userType = state.users[_user[i]];
 
             // Verify sender has authorization to update user's access
             if (userType >= senderType) {
                 revert AccessUpdateAuth(_user[i], userType);
             }
 
-            state.users[userHash] = _type;
+            state.users[_user[i]] = _type;
             if (userType == AccessType.None){
-                // Its a new user, so update state.userCount
+                // Update state.userCount only if new user
                 state.userCount++;
             }
         }
@@ -117,20 +116,18 @@ contract Dao{
     ///         Members - None
     /// @param _user an array of account address to be removed as users from the dao
     function removeUser(address[] memory _user) public {
-        bytes32 senderHash = hash(msg.sender);
         uint userLen = _user.length;
         for (uint i=0; i<userLen; i++) {
-            bytes32 userHash = hash(_user[i]);
-            AccessType userType = state.users[userHash];
+            AccessType userType = state.users[_user[i]];
 
             // Verify sender's authorization to remove provided access type
             if (userType == AccessType.None) {
                 revert NotUser(_user[i]);
-            } else if (state.users[senderHash] <= userType) {
+            } else if (state.users[msg.sender] <= userType) {
                 revert RemovalAuth(_user[i], userType);
             } 
 
-            delete state.users[userHash];
+            delete state.users[_user[i]];
             state.userCount--;
         }
     }
@@ -140,17 +137,10 @@ contract Dao{
     ///         Owner - Officer
     /// @param _officer address of the officer being removed
     function removeOfficer(address _officer) external onlyOwner() {
-        bytes32 userHash = hash(_officer);
-        require(state.users[userHash] == AccessType.Officer, "Not an officer");
-        delete state.users[userHash];
+        require(state.users[_officer] == AccessType.Officer, "Not an officer");
+        require(_officer != state.owner, "Can't remove owner");
+        delete state.users[_officer];
         state.userCount--;
-    }
-
-    /// Runs the provided solidity address through a keccak256 hash
-    /// @param addr address to be hashed
-    /// @return bytes32 the resulting 32 byte hash of the address
-    function hash(address addr) internal pure returns (bytes32) {
-        return keccak256(abi.encode(addr));
     }
     
     /// Verifies the proposed new user count will be within the max user limit
@@ -162,7 +152,7 @@ contract Dao{
 
     /// Verifies that only an owner can perform a certain function
     modifier onlyOwner() {
-        require(state.owner == hash(msg.sender), 'Only owner is allowed');
+        require(state.owner == msg.sender, 'Only owner is allowed');
         _;
     }
 }

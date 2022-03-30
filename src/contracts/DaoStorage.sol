@@ -11,10 +11,10 @@ enum AccessType {
 struct DaoStorage {
     // These state variables must remain unchanged
     string daoName;                             //0
-    bytes32 owner;                              //1
+    address owner;                              //1
     address topicAddress;                       //2
     uint32 maxUsers;                            //2
     uint32 userCount;                           //2
-    mapping(bytes32 => AccessType) users;       //3
+    mapping(address => AccessType) users;       //3
     // -----------------------------------
 }
