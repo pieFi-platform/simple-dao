@@ -2,7 +2,7 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import "./Dao.sol";
-import "./DaoStorage.sol";
+import "./DaoContract.sol";
 
 contract DaoProxy{
 
@@ -15,7 +15,7 @@ contract DaoProxy{
         state.daoName = _daoName;
         state.topicAddress = _topicAddress;
         state.owner = _owner;
-        state.maxUsers = 100000;        // At time of development, max users per dao is about 160k - currently capping at 100k 
+        state.maxUsers = MAX_USERS;        // At time of development, max users per dao is about 160k - currently capping at 100k 
         state.users[state.owner] = AccessType.Officer;
         state.userCount++;
 

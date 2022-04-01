@@ -3,7 +3,7 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "./test.sol";
 import "../contracts/Dao.sol";
-import "../contracts/DaoStorage.sol";
+import "../contracts/DaoContract.sol";
 
 interface CheatCodes {
   function prank(address) external;
@@ -11,6 +11,7 @@ interface CheatCodes {
 }
 
 string constant NullString = "";
+bytes constant NullBytes = "";
 address constant NullAddress = address(0);
 
 contract DaoTest is DSTest {
@@ -21,6 +22,9 @@ contract DaoTest is DSTest {
     address public gTopicAddress = 0x0000000000000000000000000000000000012345;
     uint32 public gMaxUsers = 100000;
     uint256 gBatchSize = 1000;
+    uint32 gAccessUpdateAuthIdentifier = 0x853d9ed4;
+    uint32 gRemovalAuthIdentifier = 0x04939f12;
+    uint32 gNotUserIdentifier = 0x51ef2234;
     address[] public gUsers = [
                         address(0x1), 
                         address(0x2), 
@@ -43,30 +47,38 @@ contract DaoTest is DSTest {
     // =================
     // Utility Functions
     // =================
-    function strCmp(string memory a, string memory b) public pure returns(bool){
+    function CreateErorrCallData(uint32 _identifier, uint256 _arg1) internal pure returns(bytes memory){
+        return abi.encodePacked(_identifier, _arg1);
+    }
+
+    function CreateErorrCallData(uint32 _identifier, uint256 _arg1, uint256 _arg2) internal pure returns(bytes memory){
+        return abi.encodePacked(_identifier, _arg1, _arg2);
+    }
+
+    function bytesCmp(bytes memory a, bytes memory b) public pure returns(bool){
         return keccak256(abi.encodePacked(a)) == keccak256(abi.encodePacked(b));
     }
 
     function addAUserNoImpersonateNoRevert(address user, AccessType userLevel) public {
-        addAUserNoImpersonate(user, userLevel, NullString);
+        addAUserNoImpersonate(user, userLevel, NullBytes);
     }
-    function addAUserNoImpersonateWithRevert(address user, AccessType userLevel, string memory revertMessage) public {
+    function addAUserNoImpersonateWithRevert(address user, AccessType userLevel, bytes memory revertMessage) public {
         addAUserNoImpersonate(user, userLevel, revertMessage);
     }
-    function addAUserNoImpersonate(address user, AccessType userLevel, string memory revertMessage) public {
+    function addAUserNoImpersonate(address user, AccessType userLevel, bytes memory revertMessage) public {
         addAUser(user, userLevel, NullAddress, revertMessage);
     }
 
     function addAUserWithImpersonateNoRevert(address user, AccessType userLevel, address impersonateAs) public {
-        addAUserWithImpersonate(user, userLevel, impersonateAs, NullString);
+        addAUserWithImpersonate(user, userLevel, impersonateAs, NullBytes);
     }
-    function addAUserWithImpersonateWithRevert(address user, AccessType userLevel, address impersonateAs, string memory revertMessage) public {
+    function addAUserWithImpersonateWithRevert(address user, AccessType userLevel, address impersonateAs, bytes memory revertMessage) public {
         addAUserWithImpersonate(user, userLevel, impersonateAs, revertMessage);
     }
-    function addAUserWithImpersonate(address user, AccessType userLevel, address impersonateAs, string memory revertMessage) public {
+    function addAUserWithImpersonate(address user, AccessType userLevel, address impersonateAs, bytes memory revertMessage) public {
         addAUser(user, userLevel, impersonateAs, revertMessage);
     }
-    function addAUser(address user, AccessType userLevel, address impersonateAs, string memory revertMessage) public {
+    function addAUser(address user, AccessType userLevel, address impersonateAs, bytes memory revertMessage) public {
         address[] memory param = new address[](1);
         param[0] = user;
 
@@ -76,7 +88,7 @@ contract DaoTest is DSTest {
         if(impersonateAs != NullAddress){
             cheats.prank(impersonateAs);
         }
-        if(!strCmp(revertMessage, NullString)){
+        if(!bytesCmp(revertMessage, NullBytes)){
             cheats.expectRevert(bytes(revertMessage));
             expectSuccess = false;
         }
@@ -91,25 +103,25 @@ contract DaoTest is DSTest {
 
 
     function removeAUserNoImpersonateNoRevert(address user) public {
-        removeAUserNoImpersonate(user, NullString);
+        removeAUserNoImpersonate(user, NullBytes);
     }
-    function removeAUserNoImpersonateWithRevert(address user, string memory revertMessage) public {
+    function removeAUserNoImpersonateWithRevert(address user, bytes memory revertMessage) public {
         removeAUserNoImpersonate(user, revertMessage);
     }
-    function removeAUserNoImpersonate(address user, string memory revertMessage) public {
+    function removeAUserNoImpersonate(address user, bytes memory revertMessage) public {
         removeAUser(user, NullAddress, revertMessage);
     }
 
     function removeAUserWithImpersonateNoRevert(address user, address impersonateAs) public {
-        removeAUserWithImpersonate(user, impersonateAs, NullString);
+        removeAUserWithImpersonate(user, impersonateAs, NullBytes);
     }
-    function removeAUserWithImpersonateWithRevert(address user, address impersonateAs, string memory revertMessage) public {
+    function removeAUserWithImpersonateWithRevert(address user, address impersonateAs, bytes memory revertMessage) public {
         removeAUserWithImpersonate(user, impersonateAs, revertMessage);
     }
-    function removeAUserWithImpersonate(address user, address impersonateAs, string memory revertMessage) public {
+    function removeAUserWithImpersonate(address user, address impersonateAs, bytes memory revertMessage) public {
         removeAUser(user, impersonateAs, revertMessage);
     }
-    function removeAUser(address user, address impersonateAs, string memory revertMessage) public {
+    function removeAUser(address user, address impersonateAs, bytes memory revertMessage) public {
         address[] memory param = new address[](1);
         param[0] = user;
 
@@ -119,7 +131,7 @@ contract DaoTest is DSTest {
         if(impersonateAs != NullAddress){
             cheats.prank(impersonateAs);
         }
-        if(!strCmp(revertMessage, NullString)){
+        if(!bytesCmp(revertMessage, NullBytes)){
             cheats.expectRevert(bytes(revertMessage));
             expectSuccess = false;
         }
@@ -134,25 +146,25 @@ contract DaoTest is DSTest {
 
 
     function removeUsersNoImpersonateNoRevert(address[] memory users) public {
-        removeUsersNoImpersonate(users, NullString);
+        removeUsersNoImpersonate(users, NullBytes);
     }
-    function removeUsersNoImpersonateWithRevert(address[] memory users, string memory revertMessage) public {
+    function removeUsersNoImpersonateWithRevert(address[] memory users, bytes memory revertMessage) public {
         removeUsersNoImpersonate(users, revertMessage);
     }
-    function removeUsersNoImpersonate(address[] memory users, string memory revertMessage) public {
+    function removeUsersNoImpersonate(address[] memory users, bytes memory revertMessage) public {
         removeUsers(users, NullAddress, revertMessage);
     }
 
     function removeUsersWithImpersonateNoRevert(address[] memory users, address impersonateAs) public {
-        removeUsersWithImpersonate(users, impersonateAs, NullString);
+        removeUsersWithImpersonate(users, impersonateAs, NullBytes);
     }
-    function removeUsersWithImpersonateWithRevert(address[] memory users, address impersonateAs, string memory revertMessage) public {
+    function removeUsersWithImpersonateWithRevert(address[] memory users, address impersonateAs, bytes memory revertMessage) public {
         removeUsersWithImpersonate(users, impersonateAs, revertMessage);
     }
-    function removeUsersWithImpersonate(address[] memory users, address impersonateAs, string memory revertMessage) public {
+    function removeUsersWithImpersonate(address[] memory users, address impersonateAs, bytes memory revertMessage) public {
         removeUsers(users, impersonateAs, revertMessage);
     }
-    function removeUsers(address[] memory users, address impersonateAs, string memory revertMessage) public {
+    function removeUsers(address[] memory users, address impersonateAs, bytes memory revertMessage) public {
         AccessType[] memory originalUserLevels = new AccessType[](users.length);
         for (uint i = 0; i < users.length; i++){
             originalUserLevels[i] = dao.getUser(users[i]);
@@ -163,7 +175,7 @@ contract DaoTest is DSTest {
         if(impersonateAs != NullAddress){
             cheats.prank(impersonateAs);
         }
-        if(!strCmp(revertMessage, NullString)){
+        if(!bytesCmp(revertMessage, NullBytes)){
             cheats.expectRevert(bytes(revertMessage));
             expectSuccess = false;
         }
@@ -182,31 +194,33 @@ contract DaoTest is DSTest {
 
 
     function removeAnOfficerNoImpersonateNoRevert(address user) public {
-        removeAnOfficerNoImpersonate(user, NullString);
+        removeAnOfficerNoImpersonate(user, NullBytes);
     }
-    function removeAnOfficerNoImpersonateWithRevert(address user, string memory revertMessage) public {
+    function removeAnOfficerNoImpersonateWithRevert(address user, bytes memory revertMessage) public {
         removeAnOfficerNoImpersonate(user, revertMessage);
     }
-    function removeAnOfficerNoImpersonate(address user, string memory revertMessage) public {
+    function removeAnOfficerNoImpersonate(address user, bytes memory revertMessage) public {
         removeAnOfficer(user, NullAddress, revertMessage);
     }
 
     function removeAnOfficerWithImpersonateNoRevert(address user, address impersonateAs) public {
-        removeAnOfficerWithImpersonate(user, impersonateAs, NullString);
+        removeAnOfficerWithImpersonate(user, impersonateAs, NullBytes);
     }
-    function removeAnOfficerWithImpersonateWithRevert(address user, address impersonateAs, string memory revertMessage) public {
+    function removeAnOfficerWithImpersonateWithRevert(address user, address impersonateAs, bytes memory revertMessage) public {
         removeAnOfficerWithImpersonate(user, impersonateAs, revertMessage);
     }
-    function removeAnOfficerWithImpersonate(address user, address impersonateAs, string memory revertMessage) public {
+    function removeAnOfficerWithImpersonate(address user, address impersonateAs, bytes memory revertMessage) public {
         removeAnOfficer(user, impersonateAs, revertMessage);
     }
-    function removeAnOfficer(address user, address impersonateAs, string memory revertMessage) public {
+    function removeAnOfficer(address user, address impersonateAs, bytes memory revertMessage) public {
         bool expectSuccess = true;
+
+        AccessType origUserLevel = dao.getUser(user);
 
         if(impersonateAs != NullAddress){
             cheats.prank(impersonateAs);
         }
-        if(!strCmp(revertMessage, NullString)){
+        if(!bytesCmp(revertMessage, NullBytes)){
             cheats.expectRevert(bytes(revertMessage));
             expectSuccess = false;
         }
@@ -215,7 +229,7 @@ contract DaoTest is DSTest {
         if(expectSuccess){
             assertEq(uint(dao.getUser(user)), uint(0));
         } else {
-            assertEq(uint(dao.getUser(user)), uint(AccessType.Officer));
+            assertEq(uint(dao.getUser(user)), uint(origUserLevel));
         }
     }
 
@@ -368,8 +382,8 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 2);
 
         // Have gUsers[1] try to add gUsers[2] as an Admin
-        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Admin, gUsers[1], "Not authorized to grant");
-        assertEq(dao.getUserCount(), 2);
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Admin, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
     }
 
     function testAddUserAdminAsOfficer() public {
@@ -443,7 +457,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Remove gUsers[2] as gUsers[1] who is a member
-        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove user");
+        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove");
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -493,7 +507,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Remove gUsers[2] as gUsers[1] who is a Member
-        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove user");
+        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove");
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -504,8 +518,8 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Remove gUsers[2] as gUsers[1] who is an Admin
-        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove user");
-        assertEq(dao.getUserCount(), 3);
+        removeAUserWithImpersonateNoRevert(gUsers[2], gUsers[1]);
+        assertEq(dao.getUserCount(), 2);
     }
 
     function testRemoveUserAdminAsOfficer() public {
@@ -530,7 +544,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 2);
 
         // Remove gUsers[1] as owner
-        removeAUserNoImpersonateWithRevert(gUsers[1], "Not authorized to remove user");
+        removeAUserNoImpersonateWithRevert(gUsers[1], CreateErorrCallData(gRemovalAuthIdentifier, uint256(AccessType.Admin), uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 2);
     }
 
@@ -542,7 +556,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Remove gUsers[2] as gUsers[1] who is a Member
-        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove user");
+        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove");
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -554,7 +568,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Remove gUsers[2] as gUsers[1] who is a Admin
-        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove user");
+        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], CreateErorrCallData(gRemovalAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -565,7 +579,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Remove gUsers[2] as gUsers[1] who is a Officer
-        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], "Not authorized to remove user");
+        removeAUserWithImpersonateWithRevert(gUsers[2], gUsers[1], CreateErorrCallData(gRemovalAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -757,12 +771,12 @@ contract DaoTest is DSTest {
     function testAddUserTwiceAdminAsAdmin() public {
         // Add gUsers[1] as an Admin
         addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
-        // Add gUsers[2] as a Admin
+        // Add gUsers[2] as an Admin
         addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
         assertEq(dao.getUserCount(), 3);
 
         // Have gUsers[1] try to add gUsers[2] again as a Admin
-        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Admin, gUsers[1], "Not authorized to grant");
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Admin, gUsers[1]);
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -788,7 +802,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 2);
 
         // Try to add gUsers[1] again as an Officer
-        addAUserNoImpersonateWithRevert(gUsers[1], AccessType.Officer, "Not authorized to change access");
+        addAUserNoImpersonateWithRevert(gUsers[1], AccessType.Officer, CreateErorrCallData(gAccessUpdateAuthIdentifier, uint256(AccessType.Admin), uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 2);
     }
 
@@ -824,7 +838,7 @@ contract DaoTest is DSTest {
         assertEq(dao.getUserCount(), 3);
 
         // Have gUsers[1] try to add gUsers[2] again as an Officer
-        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Officer, gUsers[1], "Not authorized to change access");
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Officer, gUsers[1], CreateErorrCallData(gAccessUpdateAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 3);
     }
 
@@ -841,7 +855,7 @@ contract DaoTest is DSTest {
         removeAUserNoImpersonateNoRevert(gUsers[1]);
         assertEq(dao.getUserCount(), 1);
         // Try again and expect failure
-        removeAUserNoImpersonateWithRevert(gUsers[1], "Not a user");
+        removeAUserNoImpersonateWithRevert(gUsers[1], CreateErorrCallData(gNotUserIdentifier, uint256(AccessType.Admin)));
         assertEq(dao.getUserCount(), 1);
     }
 
@@ -856,7 +870,7 @@ contract DaoTest is DSTest {
         removeAUserWithImpersonateNoRevert(gUsers[2], gUsers[1]);
         assertEq(dao.getUserCount(), 2);
         // Try again and expect failure
-        removeAUserNoImpersonateWithRevert(gUsers[2], "Not a user");
+        removeAUserNoImpersonateWithRevert(gUsers[2], CreateErorrCallData(gNotUserIdentifier, uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 2);
     }
 
@@ -872,7 +886,7 @@ contract DaoTest is DSTest {
         removeAUserWithImpersonateNoRevert(gUsers[2], gUsers[1]);
         assertEq(dao.getUserCount(), 2);
         // Try again and expect failure
-        removeAUserNoImpersonateWithRevert(gUsers[2], "Not a user");
+        removeAUserNoImpersonateWithRevert(gUsers[2], CreateErorrCallData(gNotUserIdentifier, uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 2);
     }
 
@@ -889,7 +903,7 @@ contract DaoTest is DSTest {
         removeAUserNoImpersonateNoRevert(gUsers[1]);
         assertEq(dao.getUserCount(), 1);
         // Try again and expect failure
-        removeAUserNoImpersonateWithRevert(gUsers[1], "Not a user");
+        removeAUserNoImpersonateWithRevert(gUsers[1], CreateErorrCallData(gNotUserIdentifier, uint256(AccessType.Admin)));
         assertEq(dao.getUserCount(), 1);
     }
 
@@ -904,7 +918,7 @@ contract DaoTest is DSTest {
         removeAUserWithImpersonateNoRevert(gUsers[2], gUsers[1]);
         assertEq(dao.getUserCount(), 2);
         // Try again and expect failure
-        removeAUserNoImpersonateWithRevert(gUsers[2], "Not a user");
+        removeAUserNoImpersonateWithRevert(gUsers[2], CreateErorrCallData(gNotUserIdentifier, uint256(AccessType.Officer)));
         assertEq(dao.getUserCount(), 2);
     }
 
@@ -921,7 +935,7 @@ contract DaoTest is DSTest {
         removeAnOfficerNoImpersonateNoRevert(gUsers[1]);
         assertEq(dao.getUserCount(), 1);
         // Try again and expect failure
-        removeAnOfficerNoImpersonateNoRevert(gUsers[1]);
+        removeAnOfficerNoImpersonateWithRevert(gUsers[1], "Not an officer");
         assertEq(dao.getUserCount(), 1);
     }
 
@@ -949,19 +963,19 @@ contract DaoTest is DSTest {
 
         copy[4] = address(0x12345);
 
-        removeUsersNoImpersonateWithRevert(copy, "Not a user");
+        removeUsersNoImpersonateWithRevert(copy, CreateErorrCallData(gNotUserIdentifier, uint256(uint160(copy[4]))));
         assertEq(dao.getUserCount(), 10);
 
         copy[4] = gUsers[4];
         copy[0] = address(0x12345);
 
-        removeUsersNoImpersonateWithRevert(copy, "Not a user");
+        removeUsersNoImpersonateWithRevert(copy, CreateErorrCallData(gNotUserIdentifier, uint256(uint160(copy[0]))));
         assertEq(dao.getUserCount(), 10);
 
         copy[0] = gUsers[0];
         copy[gUsers.length-1] = address(0x12345);
 
-        removeUsersNoImpersonateWithRevert(copy, "Not a user");
+        removeUsersNoImpersonateWithRevert(copy, CreateErorrCallData(gNotUserIdentifier, uint256(uint160(copy[gUsers.length-1]))));
         assertEq(dao.getUserCount(), 10);
     }
 
@@ -991,4 +1005,243 @@ contract DaoTest is DSTest {
         dao.transferHbar(payable(address(this)), 1);
     }
 
+
+    // ================================
+    // Test promoting a Member to Admin
+    // ================================
+    function testPromoteMemberToAdminAsMember() public {
+        // Add gUsers[1] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Member);
+        // Add gUsers[2] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Member);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Admin as gUsers[1] who is a Member
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Admin, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testPromoteMemberToAdminAsAdmin() public {
+        // Add gUsers[1] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
+        // Add gUsers[2] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Member);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Admin as gUsers[1] who is an Admin
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Admin, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testPromoteMemberToAdminAsOfficer() public {
+        // Add gUsers[1] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Officer);
+        // Add gUsers[2] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Member);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Admin as gUsers[1] who is an Officer
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Admin, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
+    }
+
+
+    // ==================================
+    // Test promoting a Member to Officer
+    // ==================================    
+    function testPromoteMemberToOfficerAsMember() public {
+        // Add gUsers[1] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Member);
+        // Add gUsers[2] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Member);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Officer as gUsers[1] who is a Member
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Officer, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testPromoteMemberToOfficerAsAdmin() public {
+        // Add gUsers[1] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
+        // Add gUsers[2] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Member);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Officer as gUsers[1] who is an Admin
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Officer, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testPromoteMemberToOfficerAsOfficer() public {
+        // Add gUsers[1] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Officer);
+        // Add gUsers[2] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Member);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Officer as gUsers[1] who is an Officer
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Officer, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
+    }
+
+
+    // ==================================
+    // Test promoting an Admin to Officer
+    // ==================================    
+    function testPromoteAdminToOfficerAsMember() public {
+        // Add gUsers[1] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Member);
+        // Add gUsers[2] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Officer as gUsers[1] who is a Member
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Officer, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testPromoteAdminToOfficerAsAdmin() public {
+        // Add gUsers[1] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
+        // Add gUsers[2] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Officer as gUsers[1] who is an Admin
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Officer, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testPromoteAdminToOfficerAsOfficer() public {
+        // Add gUsers[1] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Officer);
+        // Add gUsers[2] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
+        assertEq(dao.getUserCount(), 3);
+
+        // Promote gUsers[2] to Officer as gUsers[1] who is a Member
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Officer, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
+    }
+
+
+    // =================================
+    // Test demoting an Officer to Amdin
+    // =================================    
+    function testDemoteOfficerToAdminAsMember() public {
+        // Add gUsers[1] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Member);
+        // Add gUsers[2] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Officer);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Admin as gUsers[1] who is a Member
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Admin, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testDemoteOfficerToAdminAsAdmin() public {
+        // Add gUsers[1] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
+        // Add gUsers[2] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Officer);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Admin as gUsers[1] who is an Admin
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Admin, gUsers[1], CreateErorrCallData(gAccessUpdateAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testDemoteOfficerToAdminAsOfficer() public {
+        // Add gUsers[1] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Officer);
+        // Add gUsers[2] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Officer);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Admin as gUsers[1] who is an Officer
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Admin, gUsers[1], CreateErorrCallData(gAccessUpdateAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
+        assertEq(dao.getUserCount(), 3);
+    }
+
+
+    // ==================================
+    // Test demoting an Officer to Member
+    // ==================================   
+    function testDemoteOfficerToMemberAsMember() public {
+        // Add gUsers[1] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Member);
+        // Add gUsers[2] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Officer);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Member as gUsers[1] who is a Member
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Member, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testDemoteOfficerToMemberAsAdmin() public {
+        // Add gUsers[1] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
+        // Add gUsers[2] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Officer);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Member as gUsers[1] who is an Admin
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Member, gUsers[1], CreateErorrCallData(gAccessUpdateAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testDemoteOfficerToMemberAsOfficer() public {
+        // Add gUsers[1] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Officer);
+        // Add gUsers[2] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Officer);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Member as gUsers[1] who is an Officer
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Member, gUsers[1], CreateErorrCallData(gAccessUpdateAuthIdentifier, uint256(AccessType.Officer), uint256(AccessType.Officer)));
+        assertEq(dao.getUserCount(), 3);
+    }
+
+
+    // ================================
+    // Test demoting an Admin to Member
+    // ================================   
+    function testDemoteAdminToMemberAsMember() public {
+        // Add gUsers[1] as a Member
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Member);
+        // Add gUsers[2] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Member as gUsers[1] who is a Member
+        addAUserWithImpersonateWithRevert(gUsers[2], AccessType.Member, gUsers[1], "Not authorized to grant");
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testDemoteAdminToMemberAsAdmin() public {
+        // Add gUsers[1] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Admin);
+        // Add gUsers[2] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Member as gUsers[1] who is an Admin
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Member, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
+    }
+
+    function testDemoteAdminToMemberAsOfficer() public {
+        // Add gUsers[1] as an Officer
+        addAUserNoImpersonateNoRevert(gUsers[1], AccessType.Officer);
+        // Add gUsers[2] as an Admin
+        addAUserNoImpersonateNoRevert(gUsers[2], AccessType.Admin);
+        assertEq(dao.getUserCount(), 3);
+
+        // Demote gUsers[2] to Member as gUsers[1] who is an Officer
+        addAUserWithImpersonateNoRevert(gUsers[2], AccessType.Member, gUsers[1]);
+        assertEq(dao.getUserCount(), 3);
+    }
 }

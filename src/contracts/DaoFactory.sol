@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
-import "./Dao.sol";
+import "./DaoContract.sol";
 import "./DaoProxy.sol";
 
 contract DaoFactory{
@@ -9,16 +9,16 @@ contract DaoFactory{
     address public impContract;
     mapping (address => bool) public proxies;
 
-    event CreateImpEvent(string _daoName, address _topicAddress);
+    event CreateImplementationEvent(string _daoName, address _topicAddress);
     event CreateProxyEvent(string _daoName, address _topicAddress, Dao _daoAddress);
 
     /// Creates the implementation dao contract (only called once)
     /// @param _daoName the name of the dao
     /// @param _topicAddress an address of a topic previously created and attached to the dao
     /// @return address the address of the implementation contract
-    function createImp(string memory _daoName, address _topicAddress) public returns(address){
+    function createImplementation(string memory _daoName, address _topicAddress) public returns(address){
         impContract = address(new Dao(_daoName, _topicAddress, msg.sender));
-        emit CreateImpEvent(_daoName, _topicAddress);
+        emit CreateImplementationEvent(_daoName, _topicAddress);
         return impContract;
     }
 
