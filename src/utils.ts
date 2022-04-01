@@ -1,286 +1,261 @@
 import {
-  AccountId,
-  Client,
-  ContractExecuteTransaction,
-  ContractFunctionResult,
-  ContractId,
-  TokenCreateTransaction,
-  TokenId,
-  TokenInfoQuery,
-  TokenUpdateTransaction,
-  PrivateKey,
+	AccountId,
+	Client,
+	ContractCallQuery,
+	ContractExecuteTransaction,
+	ContractFunctionResult,
+	ContractId,
+	Hbar,
+	PrivateKey,
+	TopicCreateTransaction,
+	TopicId,
 } from "@hashgraph/sdk";
 import * as fs from "fs";
 import Web3 from "web3";
 
 const web3 = new Web3();
 
-// if (!process.env.ABI) {
-//   throw new Error("Need ABI in env file");
-// }
-//const abiPath = process.env.ABI;
-//const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
-// console.log(abi);
-
 /**
  * Decodes the result of a contract's function execution
- * @param functionName the name of the function within the ABI
- * @param resultAsBytes a byte array containing the execution result
+ * @param functionName - the name of the function within the ABI
+ * @param abiPath - the relative path for abi file of the contract
+ * @param resultAsBytes - a byte array containing the execution result
  */
 export function decodeFunctionResult(
-  functionName: string,
-  abiPath: string,
-  resultAsBytes: Uint8Array
+	functionName: string,
+	abiPath: string,
+	resultAsBytes: Uint8Array
 ) {
-  const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
+	const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
 
-  const functionAbi = abi.find((func: any) => func.name === functionName);
-  const functionParameters = functionAbi.outputs;
-  const resultHex = "0x".concat(Buffer.from(resultAsBytes).toString("hex"));
-  const result = web3.eth.abi.decodeParameters(functionParameters, resultHex);
-  return result;
+	const functionAbi = abi.find((func: any) => func.name === functionName);
+	const functionParameters = functionAbi.outputs;
+	const resultHex = "0x".concat(Buffer.from(resultAsBytes).toString("hex"));
+	const result = web3.eth.abi.decodeParameters(functionParameters, resultHex);
+	return result;
 }
 
 /**
  * Encodes a function call so that the contract's function can be executed or called
  * @param functionName the name of the function to call
+ * @param abiPath - the relative path for abi file of the contract
  * @param parameters the array of parameters to pass to the function
  */
 export function encodeFunctionCall(
-  functionName: string,
-  abiPath: string,
-  parameters: string[]
+	functionName: string,
+	abiPath: string,
+	parameters: (string | string[])[]
 ) {
-  const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
+	const abi = JSON.parse(fs.readFileSync(abiPath, "utf8"));
 
-  const functionAbi = abi.find(
-    (func: any) => func.name === functionName && func.type === "function"
-  );
-  const encodedParametersHex = web3.eth.abi
-    .encodeFunctionCall(functionAbi, parameters)
-    .slice(2);
-  return Buffer.from(encodedParametersHex, "hex");
+	const functionAbi = abi.find(
+		(func: any) => func.name === functionName && func.type === "function"
+	);
+	const functionParams = functionAbi.inputs;
+
+	const encodedParameters =
+		web3.eth.abi.encodeFunctionSignature(functionAbi) +
+		web3.eth.abi.encodeParameters(functionParams, parameters).slice(2);
+	const encodedParametersHex = encodedParameters.slice(2);
+
+	return Buffer.from(encodedParametersHex, "hex");
 }
 
+/**
+ * Creates a Hedera client
+ * @param operatorId - the AccountId for Account used to create the client
+ * @param operatorKey - the PrivateKey for Account used to create the client
+ * @param network - the network that the contract should be deployed on either: Testnet or Mainnet
+ * @returns client - a Hedera client
+ */
 export function getClient(
-  operatorId: AccountId | null = null,
-  operatorKey: PrivateKey | null = null,
-  network: string | null = null
+	operatorId: AccountId | null = null,
+	operatorKey: PrivateKey | null = null,
+	network: string | null = null
 ): Client {
-  // Retrieve account info from .env
-  if (!operatorId && process.env.OPERATOR_ID) {
-    operatorId = AccountId.fromString(process.env.OPERATOR_ID.replace('"', ""));
-  }
-  if (!operatorKey && process.env.OPERATOR_PVKEY) {
-    operatorKey = PrivateKey.fromString(
-      process.env.OPERATOR_PVKEY.replace('"', "")
-    );
-  }
+	// Retrieve account info from .env
+	if (!operatorId && process.env.OPERATOR_ID) {
+		operatorId = AccountId.fromString(
+			process.env.OPERATOR_ID.replace('"', "")
+		);
+	}
+	if (!operatorKey && process.env.OPERATOR_PVKEY) {
+		operatorKey = PrivateKey.fromString(
+			process.env.OPERATOR_PVKEY.replace('"', "")
+		);
+	}
 
-  // Configure Hedera network and build client
-  if (!network && process.env.NETWORK) {
-    network = process.env.NETWORK.toLowerCase();
-  }
+	// Configure Hedera network and build client
+	if (!network && process.env.NETWORK) {
+		network = process.env.NETWORK.toLowerCase();
+	}
 
-  if (!operatorId || !operatorKey || !network) {
-    throw new Error(
-      `❌Bad arguments, cannot create a client with: ${operatorId}, ${operatorKey}, ${network}❌`
-    );
-  }
+	if (!operatorId || !operatorKey || !network) {
+		throw new Error(
+			`❌Bad arguments, cannot create a client with: ${operatorId}, ${operatorKey}, ${network}❌`
+		);
+	}
 
-  let client: Client;
-  if (network === "testnet") {
-    client = Client.forTestnet().setOperator(operatorId, operatorKey);
-  } else if (network === "mainnet") {
-    client = Client.forMainnet().setOperator(operatorId, operatorKey);
-  } else {
-    throw new Error(
-      `❌The Hedera network you entered is not valid. (Please enter either "Testnet" or "Mainnet")❌`
-    );
-  }
-  return client;
+	let client: Client;
+	if (network === "testnet") {
+		client = Client.forTestnet().setOperator(operatorId, operatorKey);
+	} else if (network === "mainnet") {
+		client = Client.forMainnet().setOperator(operatorId, operatorKey);
+	} else {
+		throw new Error(
+			`❌The Hedera network you entered is not valid. (Please enter either "Testnet" or "Mainnet")❌`
+		);
+	}
+	return client;
 }
 
+/**
+ * Calls a function on a smart contract that has previously been deployed to Hedera
+ * @param contractId - the Hedera ContractId for the deployed contract that is being called
+ * @param abiPath - the relative path for the abi file of the contract
+ * @param funcName- name of the function to be called on the contract
+ * @param funcParams - the function's parameters
+ * @param client - the Hedera client that will sign the contract function call
+ * @param keys - a list of Hedera PrivateKeys that are required to sign the contract function call
+ * @param amount - amount of Hbar being transfered to the account if the function is payable
+ * @returns result of the contract function call
+ */
 export async function callContractFunc(
-  contractId: ContractId,
-  abiPath: string,
-  funcName: string,
-  funcParams: string[],
-  client: Client,
-  keys: PrivateKey[] | null = null
+	contractId: ContractId,
+	abiPath: string,
+	funcName: string,
+	funcParams: (string | string[])[] | undefined,
+	client: Client,
+	keys: PrivateKey[] | null = null,
+	amount: Hbar | null = null
 ): Promise<ContractFunctionResult | null> {
-  let gas = 1000000;
-  if (process.env.CONTRACT_GAS) {
-    gas = Number(process.env.CONTRACT_GAS);
-  }
+	let gas = 1000000;
+	if (process.env.CONTRACT_GAS) {
+		gas = Number(process.env.CONTRACT_GAS);
+	}
 
-  console.log(`Using contractId: ${contractId}`);
-  console.log(`Using funcName: ${funcName}`);
-  console.log(`Using params: ${funcParams}`);
-  console.log(`Using gas: ${gas}`);
+	try {
+		const tx = new ContractExecuteTransaction()
+			.setContractId(contractId)
+			.setFunctionParameters(
+				encodeFunctionCall(
+					funcName,
+					abiPath,
+					funcParams ? funcParams : []
+				)
+			)
+			.setGas(gas);
 
-  try {
-    const tx = new ContractExecuteTransaction()
-      .setContractId(contractId)
-      .setFunctionParameters(
-        encodeFunctionCall(funcName, abiPath, funcParams ? funcParams : [])
-      )
-      .setGas(gas)
-      .freezeWith(client);
+		if (amount) {
+			tx.setPayableAmount(amount);
+		}
+		tx.freezeWith(client);
 
-    //    await tx.signWithOperator(client);
+		if (keys) {
+			for (const key of keys) {
+				await tx.sign(key);
+				console.log("Sign successful");
+			}
+		}
 
-    if (keys) {
-      for (const key of keys) {
-        await tx.sign(key);
-        console.log("Sign successful");
-      }
-    }
+		const response = await tx.execute(client);
 
-    const response = await tx.execute(client);
+		const record = await response.getRecord(client);
 
-    const record = await response.getRecord(client);
-    console.log(record);
-
-    if (record.contractFunctionResult) {
-      console.log(
-        decodeFunctionResult(
-          funcName,
-          abiPath,
-          record.contractFunctionResult.bytes
-        )
-      );
-    }
-    const txStatus = record.receipt.status;
-    console.log(`The transaction status was: ${txStatus}`);
-    return record.contractFunctionResult;
-  } catch (err) {
-    console.log(err);
-    return null;
-  }
+		return record.contractFunctionResult;
+	} catch (err) {
+		console.log(err);
+		return null;
+	}
 }
 
-export async function makeTokens(
-  treasuryKey: PrivateKey,
-  client: Client,
-  daoInput: DaoInput
-): Promise<TokenId[]> {
-  const tokens: TokenId[] = [];
-  tokens.push(
-    await createToken(
-      treasuryKey,
-      client,
-      daoInput.daoName,
-      daoInput.daoSymbol,
-      daoInput.officerSupply,
-      "officer"
-    )
-  );
-  tokens.push(
-    await createToken(
-      treasuryKey,
-      client,
-      daoInput.daoName,
-      daoInput.daoSymbol,
-      daoInput.adminSupply,
-      "admin"
-    )
-  );
-  tokens.push(
-    await createToken(
-      treasuryKey,
-      client,
-      daoInput.daoName,
-      daoInput.daoSymbol,
-      daoInput.memberSupply,
-      "member"
-    )
-  );
+/**
+ * Queries a function on a smart contract that has previously been deployed to Hedera
+ * @param contractId - the Hedera ContractId for the deployed contract that is being called
+ * @param abiPath - the relative path for abi file of the contract
+ * @param funcName- name of the function to be queried on the contract
+ * @param funcParams - the function's parameters
+ * @param client - the Hedera client that will sign the contract function query
+ * @returns result of the contract function call
+ */
+export async function queryContractFunc(
+	contractId: ContractId,
+	abiPath: string,
+	funcName: string,
+	funcParams: string[] | undefined,
+	client: Client
+): Promise<ContractFunctionResult | null> {
+	let gas = 100000;
+	if (process.env.CONTRACT_GAS) {
+		gas = Number(process.env.CONTRACT_GAS);
+	}
 
-  return tokens;
+	try {
+		const tx = new ContractCallQuery()
+			.setContractId(contractId)
+			.setFunctionParameters(
+				encodeFunctionCall(
+					funcName,
+					abiPath,
+					funcParams ? funcParams : []
+				)
+			)
+			.setGas(gas);
+
+		const response = await tx.execute(client);
+
+		return response;
+	} catch (err) {
+		console.log(err);
+		return null;
+	}
 }
 
-async function createToken(
-  _treasuryKey: PrivateKey,
-  _client: Client,
-  _dao_name: string,
-  _dao_symbol: string,
-  _numTokens: number,
-  _tokenType: "officer" | "admin" | "member"
-): Promise<TokenId> {
-  try {
-    const successCode = 22; // A transaction receipt returns a status code of 22 if the transaction was a success
-    const tokenType = _tokenType.toLowerCase();
-    const tokenName = `${_dao_name} - ${
-      tokenType.charAt(0).toUpperCase() + tokenType.slice(1)
-    }`;
-    const tokenSymbol = `${_dao_symbol}-${tokenType.charAt(0).toUpperCase()}`;
+/**
+ * Creates a new Topic on Hedera
+ * @param client - the Hedera client that will sign the Topic creation
+ * @param operatorKey - the Hedera PrivateKey for the Hedera client used to sign the Topic creation
+ * @returns topicId - the Hedera TopicId for the created topic
+ */
+export async function createTopic(
+	client: Client,
+	operatorKey: PrivateKey
+): Promise<TopicId> {
+	try {
+		const successCode = 22; // A transaction receipt returns a status code of 22 if the transaction was a success
 
-    const operatorId = _client.operatorAccountId;
-    const operatorKey = _client.operatorPublicKey;
-    if (operatorId === null || operatorKey === null) {
-      throw new Error("Client must have an AccountId and PublicKey attached");
-    }
+		const operatorId = client.operatorAccountId;
+		const operatorPubKey = client.operatorPublicKey;
+		if (!operatorId || !operatorPubKey) {
+			throw new Error(
+				"Client must have an AccountId and PublicKey attached"
+			);
+		}
 
-    // Create token
-    console.log(`⏱ Creating ${tokenType} token...`);
-    const tokenTransaction = await new TokenCreateTransaction()
-      .setTokenName(tokenName)
-      .setTokenSymbol(tokenSymbol)
-      .setDecimals(0)
-      .setInitialSupply(_numTokens)
-      .setTreasuryAccountId(operatorId) //TODO: Figure out how to get ID and Account from the client
-      .setAdminKey(operatorKey)
-      .setSupplyKey(operatorKey)
-      .setFreezeKey(operatorKey)
-      .freezeWith(_client)
-      .sign(_treasuryKey);
-    const tokenSubmit = await tokenTransaction.execute(_client);
-    const tokenReceipt = await tokenSubmit.getReceipt(_client);
-    const tokenId = tokenReceipt.tokenId;
-    const tokenStatus = tokenReceipt.status._code;
+		// Create topic
+		const topicTransaction = await new TopicCreateTransaction()
+			.setAdminKey(operatorPubKey)
+			.freezeWith(client);
 
-    // Error if transaction failed
-    if (tokenStatus !== successCode || !tokenId) {
-      throw new Error(`❌The ${tokenType} token creation failed❌`);
-    }
-    const tokenAddressSol = tokenId.toSolidityAddress();
+		topicTransaction.sign(operatorKey);
+		const topicSubmit = await topicTransaction.execute(client);
+		const topicReceipt = await topicSubmit.getReceipt(client);
+		const topicId = topicReceipt.topicId;
+		const topicStatus = topicReceipt.status._code;
 
-    console.log(
-      `✅ The ${tokenName} token Id is : ${tokenId} \n✅ The ${tokenName} token in solidity format is ${tokenAddressSol}`
-    );
+		// Error if transaction failed
+		if (topicStatus !== successCode || !topicId) {
+			throw new Error(`❌The topic creation failed❌`);
+		}
+		const topicAddressSol = topicId.toSolidityAddress();
 
-    // Token Query - Check initial supply amount
-    const tokenQuery = await new TokenInfoQuery()
-      .setTokenId(tokenId)
-      .execute(_client);
-    console.log(
-      `-The initial token supply of ${tokenQuery.name} (${tokenQuery.symbol}) is ${tokenQuery.totalSupply.low}-\n`
-    );
+		console.log(
+			`- The topicId is : ${topicId} \n- The topic address in solidity format is ${topicAddressSol}\n`
+		);
 
-    return tokenId;
-  } catch (err) {
-    console.log(err);
-    throw err;
-  }
-}
-
-////////////////////////Updates Token Supply Keys (called by createDao)////////////////////////
-export async function updateTokenSupplyKey(
-  tokenId: TokenId,
-  contractId: ContractId,
-  client: Client,
-  treasuryKey: PrivateKey
-) {
-  // Update token so the smart contract manages the supply
-  const tokenUpdateTx = new TokenUpdateTransaction()
-    .setTokenId(tokenId)
-    .setSupplyKey(contractId)
-    .freezeWith(client);
-  const tokenUpdateSign = await tokenUpdateTx.sign(treasuryKey);
-  const tokenUpdateSubmit = await tokenUpdateSign.execute(client);
-  const tokenUpdateReceipt = await tokenUpdateSubmit.getReceipt(client);
-  console.log(
-    `-The supply key update for token ${tokenId} was a: ${tokenUpdateReceipt.status}-`
-  );
+		return topicId;
+	} catch (err) {
+		console.log(err);
+		throw err;
+	}
 }
